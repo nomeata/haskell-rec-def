@@ -1,4 +1,16 @@
-module Data.Recursive.Propagator where
+-- | A very naive propagator library
+--
+module Data.Recursive.Propagator
+    ( Prop
+    , newProp
+    , readProp
+    , lift1
+    , lift2
+    , liftList
+    )
+    where
+
+
 
 import Control.Concurrent.MVar
 import Control.Monad
@@ -14,13 +26,13 @@ newProp x = do
     notify <- newMVar (pure ())
     pure $ Prop m notify
 
+readProp :: Prop a -> IO a
+readProp (Prop m _ ) = readMVar m
+
 setProp :: Eq a => Prop a -> a -> IO ()
 setProp (Prop m notify) x = do
     old <- swapMVar m x
     unless (old == x) $ join (readMVar notify)
-
-readProp :: Prop a -> IO a
-readProp (Prop m _ ) = readMVar m
 
 watchProp :: Prop a -> IO () -> IO ()
 watchProp (Prop m notify) f = 
