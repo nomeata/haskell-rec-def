@@ -11,7 +11,7 @@ recursively, and still get a result out:
      :}
     fromList [23,42]
 
-See the <./examples.hs> file for more example.
+See the [`examples.hs`](examples.hs) file for more example.
 
 It also provides (unsafe) building blocks to build such APIs, see `Data.Recursive`.
 

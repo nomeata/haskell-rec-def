@@ -1,6 +1,10 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DerivingVia #-}
+
+-- | TODO: More documentation.
+--
+-- In particular, describe when this is safe to use.
 module Data.Recursive
     ( R
     , pureR, mapR, liftR2, liftRList
