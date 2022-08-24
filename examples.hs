@@ -2,7 +2,7 @@
 
 This file contains a few examples of using this library.
 
-The 'PAll' has a few functions that look like ordinary boolean functions
+The 'PAll' type comes with functions that look quite like their ordinary counterparts acting on 'Bool'.
 
 >>> :t pAllTrue
 pAllTrue :: PAll
@@ -36,7 +36,7 @@ True
 
 You will notice that API for 'PAll' does not include all boolean functions.
 Essentially, it only has the constants ('pAllTrue' and 'pAllFalse'), and
-conjunction. These are the monotone functions if we order the Booleans as
+conjunction. These are the monotone functions, if we order the Booleans as
 'True' ≤ 'False'.
 
 We can also consider the dual order, embodied in the type 'PAny':
@@ -71,9 +71,11 @@ and we can mix the different types in the same computation:
  :}
 (True,False,False)
 
-We do not have to stop with booleans, and can define similar APIs for other data stuctures, e.g. sets:
+We do not have to stop with booleans, and can define similar APIs for other
+data stuctures, e.g. sets:
 
-Again we can describe sets recursively, using the monotone functions 'pEmpty', 'pInsert' and 'pUnion'
+Again we can describe sets recursively, using the monotone functions 'pEmpty',
+'pInsert' and 'pUnion'
 
 >>> :{
   let s1 = pInsert 23 s2
@@ -83,31 +85,27 @@ Again we can describe sets recursively, using the monotone functions 'pEmpty', '
 fromList [23,42]
 
 Here is a slightly larger example, where we can can use this API to elegantly
-calculate the reachable nodes in a graph, using a knot-tying approach, even if
-the graph has cycles:
->>> :{
-   -- Missing from Data.Array
-   imap :: Ix i => (i -> e -> e') -> Array i e -> Array i e'
-   imap f a = array (bounds a) [(i, f i x) | (i,x) <- assocs a]
- :}
+calculate the reachable nodes in a graph (represented as a map from vertices to
+their successors), using a typical knot-tying approach. But unless with plain
+'Set', it now works even if the graph has cycles:
 
 >>> :{
-   reachable :: Graph -> Array Vertex (S.Set Vertex)
+   reachable :: M.Map Int [Int] -> M.Map Int (S.Set Int)
    reachable g = fmap getPSet psets
      where
-       psets :: Array Vertex (PSet Vertex)
-       psets = imap (\v vs -> pInsert v (pUnions [ psets ! v' | v' <- vs ])) g
+       psets :: M.Map Int (PSet Int)
+       psets = M.mapWithKey (\v vs -> pInsert v (pUnions [ psets ! v' | v' <- vs ])) g
  :}
 
->>> let graph = buildG (1,3) [(1,2),(1,3),(2,1)]
->>> reachable graph ! 1
+>>> let graph = M.fromList [(1,[2,3]),(2,[1]),(3,[])]
+>>> reachable graph M.! 1
 fromList [1,2,3]
->>> reachable graph ! 3
+>>> reachable graph M.! 3
 fromList [3]
 
 
 Of course, the magic stops somewhere: Just like with the usual knot-tying
-tricks, you still have to makesure to be lazy enough. In particular, you should
+tricks, you still have to make sure to be lazy enough. In particular, you should
 not peek at the value (e.g. using 'getPAll') while you are building the graph:
 >>> :{
     withTimeout $
@@ -118,7 +116,7 @@ not peek at the value (e.g. using 'getPAll') while you are building the graph:
     :}
 *** Exception: timed out
 
-Similarly, you have to make sure you recurse through one of these functions:
+Similarly, you have to make sure you recurse through one of these functions; @let x = x@ still does not work:
 >>> withTimeout $ let x = x in getPAll x
 *** Exception: timed out
 >>> withTimeout $ let x = x &&& x in getPAll x
@@ -133,14 +131,11 @@ import Data.Recursive.Set
 import System.Timeout
 import Control.Exception
 import Data.Maybe
-import Data.Graph
-import Data.Array
+import Data.Map as M
 import qualified Data.Set as S
 import GHC.Err
-
 
 withTimeout :: a -> IO a
 withTimeout a =
     fromMaybe (errorWithoutStackTrace "timed out") <$>
         timeout 100000 (evaluate a)
-
