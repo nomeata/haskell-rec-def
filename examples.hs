@@ -139,7 +139,8 @@ import qualified Data.Set as S
 import GHC.Err
 
 
+withTimeout :: a -> IO a
 withTimeout a =
     fromMaybe (errorWithoutStackTrace "timed out") <$>
-        timeout 1000000 (evaluate a)
+        timeout 100000 (evaluate a)
 
