@@ -4,7 +4,22 @@
 
 -- | TODO: More documentation.
 --
--- In particular, describe when this is safe to use.
+-- The result of 'getR' is always a solution of the given equations, but for it
+-- to be deterministic (and hence for this API to be safe), the following
+-- should hold:
+--
+-- * Every 'R a' has an (implicit) with a partial order on the values of 'a'
+-- * That partial order must respect equality on 'a'
+-- * The first argument to 'mapR x f :: R a -> R b' must be the bottom element
+--   of the partial order in 'b'
+-- * The second argument must a monotone function from the partial order on 'a'
+--   to the partial order on 'b'
+--
+-- If this does not hold, then the result of 'getR' may not be deterministic.
+--
+-- Termination depends on whether a soluiton can be found iteratively. This is
+-- guaranteed if all partial orders involved satisfy the Ascending Chain Condition.
+
 module Data.Recursive
     ( R
     , pureR, mapR, liftR2, liftRList
