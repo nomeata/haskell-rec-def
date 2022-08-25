@@ -23,6 +23,7 @@ jobs:
         cabal haddock --haddock-hyperlink-source --haddock-quickjump --haddock-html-location='https://hackage.haskell.org/package/$pkg-$version/docs'
         mv dist-newstyle/build/*/*/*/doc/html/rec-def gh-page
         touch gh-page/.nojekyll
+        echo haskell-rec-def.nomeata.de > gh-page/CNAME
     - name: Deploy to Github Pages
       uses: JamesIves/github-pages-deploy-action@releases/v3
       with:
