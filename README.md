@@ -1,19 +1,19 @@
-rec-val - Pure recursive definition
+rec-def - Pure recursive definition
 ===================================
 
 This library provides safe APIs that allow you to define and calculate values
 recursively, and still get a result out:
 
     >>> :{
-      let s1 = pInsert 23 s2
-          s2 = pInsert 42 s1
-      in getPSet s1
+      let s1 = rInsert 23 s2
+          s2 = rInsert 42 s1
+      in getr s1
      :}
     fromList [23,42]
 
 See the [`examples.hs`](examples.hs) file for more examples.
 
-It also provides (unsafe) building blocks to build such APIs, see `Data.Recursive.Internal`.
+It also provides (unsafe) building blocks to build such APIs, see `Data.Recursive.R.Internal`.
 
 Related work
 ------------
