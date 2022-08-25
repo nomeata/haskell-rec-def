@@ -144,7 +144,6 @@ import Control.Exception
 import Data.Maybe
 import Data.Map as M
 import qualified Data.Set as S
-import GHC.Err
 
 withTimeout :: a -> IO a
 withTimeout a =

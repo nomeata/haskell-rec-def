@@ -45,8 +45,8 @@ library
     exposed-modules: Data.Recursive.Set
     exposed-modules: Data.Recursive.Thunk
 
-    build-depends:    base ^>= 4.11.1.0 || ^>= 4.12.0.0 || ^>= 4.13.0.0 || ^>=4.14.3.0 || ^>=4.15.1.0
-    build-depends:    containers ^>=0.6.4.1
+    build-depends:    base >= 4.9 && < 5
+    build-depends:    containers >= 0.5.11 && < 0.7
 
     default-language: Haskell2010
 
