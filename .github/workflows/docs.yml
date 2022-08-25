@@ -1,7 +1,9 @@
 ---
 name: Haddocks to Github Pages
-on: push
-branch: master
+on:
+ push:
+   branches:
+   - master
 jobs:
   docs:
     runs-on: ubuntu-latest
