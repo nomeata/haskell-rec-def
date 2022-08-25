@@ -6,7 +6,7 @@ module Data.Recursive.MustBe
 
 import Data.Coerce
 
-import Data.Recursive.Internal
+import Data.Recursive.R.Internal
 import Data.Recursive.R
 import Data.Recursive.MustBe.Internal
 import Data.Recursive.CanBe.Internal

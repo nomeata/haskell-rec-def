@@ -1,8 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 module Data.Recursive.Set (rEmpty, rInsert, rUnion, rUnions)  where
 
-import Data.Recursive.Internal
-import Data.Recursive.Class
+import Data.Recursive.R.Internal
 import Data.Recursive.CanBe.Internal
 import Data.Recursive.MustBe.Internal
 import qualified Data.Set as S

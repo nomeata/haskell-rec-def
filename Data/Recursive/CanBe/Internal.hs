@@ -1,8 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 module Data.Recursive.CanBe.Internal where
 
-import Data.Recursive.Internal
-import Data.Recursive.Class
+import Data.Recursive.R.Internal
 
 data CanBe
 

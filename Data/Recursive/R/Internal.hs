@@ -3,6 +3,9 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 -- | TODO: More documentation.
 --
@@ -22,8 +25,9 @@
 -- Termination depends on whether a soluiton can be found iteratively. This is
 -- guaranteed if all partial orders involved satisfy the Ascending Chain Condition.
 
-module Data.Recursive.Internal
+module Data.Recursive.R.Internal
     ( R
+    , Order(..)
     , r, mapR, liftR2, liftRList
     , getR
     )
@@ -36,9 +40,12 @@ import Data.Coerce
 
 import Data.Recursive.Propagator
 import Data.Recursive.Thunk
-import Data.Recursive.Class
 
 data R a = R (Prop (Val a)) Thunk
+
+class Eq (Val a) => Order a where
+    type Val a
+    bottom :: Val a
 
 r :: Order a => Val a -> R a
 r x = unsafePerformIO $ do
