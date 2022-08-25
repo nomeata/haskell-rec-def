@@ -1,6 +1,7 @@
 ---
-name: Haskell CI
-on: [push, pull_request]
+name: Haddocks to Github Pages
+on: push
+branch: master
 jobs:
   docs:
     runs-on: ubuntu-latest
@@ -21,7 +22,6 @@ jobs:
         mv dist-newstyle/build/*/*/*/doc/html/candid gh-page
         touch gh-page/.nojekyll
     - name: Deploy to Github Pages
-      if: github.ref == 'refs/heads/master'
       uses: JamesIves/github-pages-deploy-action@releases/v3
       with:
         ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
