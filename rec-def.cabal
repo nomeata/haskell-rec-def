@@ -28,6 +28,7 @@ license-file:       LICENSE
 author:             Joachim Breitner
 maintainer:         mail@joachim-breitner.de
 copyright:          2022 Joachim Breitner
+category:           Data
 extra-source-files:
     CHANGELOG.md
     README.md
