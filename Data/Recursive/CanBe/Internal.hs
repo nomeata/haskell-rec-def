@@ -1,4 +1,7 @@
+{-# OPTIONS_HADDOCK not-home #-}
+
 {-# LANGUAGE TypeFamilies #-}
+
 module Data.Recursive.CanBe.Internal where
 
 import Data.Recursive.R.Internal

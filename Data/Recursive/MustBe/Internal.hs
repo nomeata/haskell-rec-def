@@ -1,3 +1,4 @@
+{-# OPTIONS_HADDOCK not-home #-}
 {-# LANGUAGE TypeFamilies #-}
 module Data.Recursive.MustBe.Internal where
 

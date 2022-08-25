@@ -11,7 +11,7 @@ instance Eq a => Order (S.Set a) where
     type Val (S.Set a) = S.Set a
     bottom = S.empty
 
-rEmpty :: Eq a => R (S.Set a)
+rEmpty :: R (S.Set a)
 rEmpty = r S.empty
 
 rInsert :: Ord a => a -> R (S.Set a) -> R (S.Set a)

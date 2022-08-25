@@ -1,3 +1,5 @@
+{-# OPTIONS_HADDOCK not-home #-}
+
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -12,17 +14,19 @@
 -- to be deterministic (and hence for this API to be safe), the following
 -- should hold:
 --
--- * Every 'R a' has an (implicit) with a partial order on the values of 'a'
--- * That partial order must respect equality on 'a'
--- * The first argument to 'mapR x f :: R a -> R b' must be the bottom element
---   of the partial order in 'b'
--- * The second argument must a monotone function from the partial order on 'a'
---   to the partial order on 'b'
+-- * The @a@ in @R a@ indicates a partial order on the values of @Val a@.
+-- * That partial order must respect equality on @a@
+-- * It must have a bottom element 'bottom'.
+-- * The function passed to 'mapR', 'liftR2' etc. must be a monotonic function between these partial orders.
 --
 -- If this does not hold, then the result of 'getR' may not be deterministic.
 --
 -- Termination depends on whether a soluiton can be found iteratively. This is
 -- guaranteed if all partial orders involved satisfy the Ascending Chain Condition.
+--
+-- The type class 'Order' has  only 'bottom' as its member, as we do not need
+-- the other operations of the order at runtime. Nevertheless such an order
+-- better exists for the safety of this API, as explained in the module header.
 
 module Data.Recursive.R.Internal
     ( R
@@ -42,11 +46,12 @@ import Data.Recursive.Thunk
 
 data R a = R (Prop (Val a)) Thunk
 
+-- | An instance @Order a@ indicates that @a@ names a partial order on the type @Val a@. Since a type may have multiple different useful orders (e.g. 'CanBe' and 'MustBe' for 'Bool') we use this pattern to distinguish them.
 class Eq (Val a) => Order a where
     type Val a
     bottom :: Val a
 
-r :: Order a => Val a -> R a
+r :: Val a -> R a
 r x = unsafePerformIO $ do
     p <- newProp x
     t <- doneThunk

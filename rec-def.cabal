@@ -12,9 +12,8 @@ description:
    .
    will not loop, but rather  produce the set @fromList [23,42]@
    .
-   See the
-   [https://github.com/nomeata/haskell-rec-def/blob/master/examples.hs](examples.hs)
-   file for more examples, or just start using the modules
+   See [https://github.com/nomeata/haskell-rec-def/blob/master/examples.hs](examples.hs)
+   for more examples, or just browse the modules
    .
    * "Data.Recursive.Set"
    * "Data.Recursive.CanBe"
