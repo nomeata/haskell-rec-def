@@ -133,6 +133,7 @@ Similarly, you have to make sure you recurse through one of these functions; @le
 True
 
 -}
+module Examples where
 
 import Data.Recursive.R
 import Data.Recursive.CanBe
