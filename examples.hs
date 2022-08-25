@@ -134,7 +134,6 @@ True
 
 -}
 
-module Examples where
 import Data.Recursive.R
 import Data.Recursive.CanBe
 import qualified Data.Recursive.MustBe as MB
@@ -151,3 +150,4 @@ withTimeout :: a -> IO a
 withTimeout a =
     fromMaybe (errorWithoutStackTrace "timed out") <$>
         timeout 100000 (evaluate a)
+
