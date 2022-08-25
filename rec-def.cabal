@@ -57,6 +57,6 @@ test-suite doctest
     ghc-options:      -threaded
 
     build-depends:    rec-def
-    build-depends:    base ^>=4.15.1.0
-    build-depends:    doctest ^>=0.18.2
+    build-depends:    base >= 4.9 && < 5
+    build-depends:    doctest ^>= 0.18.2
 
