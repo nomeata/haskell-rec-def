@@ -13,7 +13,7 @@ jobs:
       name: Cache ~/.cabal/store
       with:
         path: ~/.cabal/store
-        key: cabal-${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('cabal.project', 'rec-def.cabal') }}
+        key: cabal-${{ runner.os }}-9.0-${{ hashFiles('cabal.project', 'rec-def.cabal') }}
     - uses: haskell/actions/setup@v1
       with:
         ghc-version: 9.0
