@@ -1,6 +1,8 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 
 -- | TODO: More documentation.
 --
@@ -20,9 +22,9 @@
 -- Termination depends on whether a soluiton can be found iteratively. This is
 -- guaranteed if all partial orders involved satisfy the Ascending Chain Condition.
 
-module Data.Recursive
+module Data.Recursive.Internal
     ( R
-    , pureR, mapR, liftR2, liftRList
+    , r, mapR, liftR2, liftRList
     , getR
     )
 where
@@ -34,47 +36,41 @@ import Data.Coerce
 
 import Data.Recursive.Propagator
 import Data.Recursive.Thunk
+import Data.Recursive.Class
 
-data R a = R (Prop a) Thunk
+data R a = R (Prop (Val a)) Thunk
 
--- Almost an applicative, but we have to pass in the default (bottom) element
-
-pureR :: a -> R a
-pureR x = unsafePerformIO $ do
+r :: Order a => Val a -> R a
+r x = unsafePerformIO $ do
     p <- newProp x
     t <- doneThunk
     pure (R p t)
 
-mapR :: Eq b => b -> (a -> b) -> R a -> R b
-mapR bottom f r = unsafePerformIO $ do
-    p <- newProp bottom
-    t <- thunk $ do
-        -- NB: Only peek at r inside thunk!
-        let R p1 t1 = r
-        lift1 f p1 p
-        mapM kick [t1]
+newR :: forall a. Order a => (Prop (Val a) -> IO [KickedThunk]) -> R a
+newR act = unsafePerformIO $ do
+    p <- newProp (bottom @a)
+    t <- thunk (act p)
     pure (R p t)
 
-liftR2 :: Eq c => c -> (a -> b -> c) -> R a -> R b -> R c
-liftR2 bottom f r1 r2 = unsafePerformIO $ do
-    p <- newProp bottom
-    t <- thunk $ do
-        let R p1 t1 = r1
-        let R p2 t2 = r2
-        lift2 f p1 p2 p
-        mapM kick [t1, t2]
-    pure (R p t)
+mapR :: Order b => (Val a -> Val b) -> R a -> R b
+mapR f r1 = newR $ \p -> do
+    let R p1 t1 = r1
+    lift1 f p1 p
+    mapM kick [t1]
 
--- also a n-ary version?
-liftRList :: Eq c => c -> ([a] -> c) -> [R a] -> R c
-liftRList bottom f rs = unsafePerformIO $ do
-    p <- newProp bottom
-    t <- thunk $ do
-        liftList f [ p | R p _ <- rs] p
-        mapM (\(R _ t) -> kick t) rs
-    pure (R p t)
+liftR2 :: Order c => (Val a -> Val b -> Val c) -> R a -> R b -> R c
+liftR2 f r1 r2 = newR $ \p -> do
+    let R p1 t1 = r1
+    let R p2 t2 = r2
+    lift2 f p1 p2 p
+    mapM kick [t1, t2]
 
-getR :: R a -> a
+liftRList :: Order c => ([Val a] -> Val c) -> [R a] -> R c
+liftRList f rs = newR $ \p -> do
+    liftList f [ p' | R p' _ <- rs] p
+    mapM (\(R _ t) -> kick t) rs
+
+getR :: R a -> Val a
 getR (R p t) = unsafePerformIO $ do
     force t
     readProp p

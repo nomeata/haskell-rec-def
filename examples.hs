@@ -2,72 +2,82 @@
 
 This file contains a few examples of using this library.
 
-The 'PAll' type comes with functions that look quite like their ordinary counterparts acting on 'Bool'.
+Imagine you are trying to calculate a boolean value, but your calculation is
+happens to be recursive. Just writing down the equations does not work:
 
->>> :t pAllTrue
-pAllTrue :: PAll
->>> :t pAllFalse
-pAllFalse :: PAll
->>> :t (&&&)
-(&&&) :: PAll -> PAll -> PAll
->>> getPAll pAllTrue
-True
->>> getPAll pAllFalse
-False
->>> getPAll (pAllFalse &&& pAllTrue)
-False
->>> getPAll (pAllTrue &&& pAllTrue)
-True
->>> getPAll (pand [pAllTrue,  pAllFalse, pAllTrue])
-False
-
-But the difference is that it allows recusive equations.
-With normal 'Bool', the following goes into a loop:
->>> withTimeout $ let x = and [y]; y = and [x, False] in x
+>>> withTimeout $ let x = y || False; y = x && False in x
 *** Exception: timed out
 
-But with 'PAll', this works!
->>> let x = pand [y]; y = pand [x, pAllFalse] in getPAll x
-False
->>> let x = pand [y]; y = pand [x, pAllTrue] in getPAll x
+This is unfortunate, isn’t it?
+
+This library provides data types where this works. You can write the equations
+in that way just fine, and still get a result.
+
+For example, the 'R MustBe' type comes with functions that look quite like their ordinary counterparts acting on 'Bool'.
+
+>>> :t rTrue
+rTrue :: R CanBe
+>>> :t rFalse
+rFalse :: R CanBe
+>>> :t (|||)
+(|||) :: R CanBe -> R CanBe -> R CanBe
+>>> :t (&&&)
+(&&&) :: R CanBe -> R CanBe -> R CanBe
+>>> getR rTrue
 True
->>> let x = pand [y]; y = pand [x] in getPAll x
-True
-
-You will notice that API for 'PAll' does not include all boolean functions.
-Essentially, it only has the constants ('pAllTrue' and 'pAllFalse'), and
-conjunction. These are the monotone functions, if we order the Booleans as
-'True' ≤ 'False'.
-
-We can also consider the dual order, embodied in the type 'PAny':
-
->>> let x = por [y]; y = por [x, pAnyFalse] in getPAny x
+>>> getR rFalse
 False
->>> let x = por [y]; y = por [x, pAnyTrue] in getPAny x
+>>> getR (rFalse &&& rTrue)
+False
+>>> getR (rTrue &&& rTrue)
 True
->>> let x = por [y]; y = por [x] in getPAny x
+>>> getR (rand [rTrue,  rFalse, rTrue])
 False
 
-The negation is actually monotone when we go from one of these to the other, so we have
->>> :t notAll
-notAll :: PAll -> PAny
->>> :t notAny
-notAny :: PAny -> PAll
+So far so good, lets see what happens when we try something recursive:
 
-and we can mix the different types in the same computation:
+>>> let x = rand [y]; y = rand [x, rFalse] in getR x
+False
+>>> let x = rand [y]; y = rand [x, rTrue] in getR x
+True
+>>> let x = rand [y]; y = rand [x] in getR x
+True
+
+The last equation is interesting: We essentially say that x is True if y is
+True, and y is True if x is True. This has two solutions, we can either set
+both to 'True' and both to 'False'.
+
+This is the reason why the type is 'R CanBe', and not just 'R Bool': It finds out whether the value _can_ be true. And abvoe, we see that indeed it can be True.
+
+There is also the dual, 'MustBe'. Because its module exports functions of the same name, we have imported it qualified. We can run run the same quations, and get different answers:
+
+>>> let x = MB.rand [y]; y = MB.rand [x, r False] in getR x
+False
+>>> let x = MB.rand [y]; y = MB.rand [x, r True] in getR x
+False
+>>> let x = MB.rand [y]; y = MB.rand [x] in getR x
+False
+
+The negation function is also available, and goes from can-be-true to must-be-true and back:
+>>> :t rnot
+rnot :: R MB.MustBe -> R CanBe
+>>> :t MB.rnot
+MB.rnot :: R CanBe -> R MB.MustBe
+
+This allows us to mix the different types in the same computation:
 >>> :{
-  let x = notAny y &&& notAny z
-      y = notAll x ||| z
-      z = pAnyTrue
-  in (getPAll x, getPAny y, getPAny z)
+  let x = rnot y &&& rnot z
+      y = MB.rnot x MB.||| z
+      z = MB.rTrue
+  in (getR x, getR y, getR z)
  :}
 (False,True,True)
 
 >>> :{
-  let x = notAny y &&& notAny z
-      y = notAll x ||| z
-      z = pAnyFalse
-  in (getPAll x, getPAny y, getPAny z)
+  let x = rnot y &&& rnot z
+      y = MB.rnot x MB.||| z
+      z = MB.rFalse
+  in (getR x, getR y, getR z)
  :}
 (True,False,False)
 
@@ -78,9 +88,9 @@ Again we can describe sets recursively, using the monotone functions 'pEmpty',
 'pInsert' and 'pUnion'
 
 >>> :{
-  let s1 = pInsert 23 s2
-      s2 = pInsert 42 s1
-  in getPSet s1
+  let s1 = rInsert 23 s2
+      s2 = rInsert 42 s1
+  in getR s1
  :}
 fromList [23,42]
 
@@ -91,10 +101,10 @@ their successors), using a typical knot-tying approach. But unless with plain
 
 >>> :{
    reachable :: M.Map Int [Int] -> M.Map Int (S.Set Int)
-   reachable g = fmap getPSet psets
+   reachable g = fmap getR sets
      where
-       psets :: M.Map Int (PSet Int)
-       psets = M.mapWithKey (\v vs -> pInsert v (pUnions [ psets ! v' | v' <- vs ])) g
+       sets :: M.Map Int (R (S.Set Int))
+       sets = M.mapWithKey (\v vs -> rInsert v (rUnions [ sets ! v' | v' <- vs ])) g
  :}
 
 >>> let graph = M.fromList [(1,[2,3]),(2,[1]),(3,[])]
@@ -106,26 +116,28 @@ fromList [3]
 
 Of course, the magic stops somewhere: Just like with the usual knot-tying
 tricks, you still have to make sure to be lazy enough. In particular, you should
-not peek at the value (e.g. using 'getPAll') while you are building the graph:
+not peek at the value (e.g. using 'getR') while you are building the graph:
 >>> :{
     withTimeout $
-      let x = pand [x, if getPAll y then z else pAllTrue]
-          y = pand [x, pAllTrue]
-          z = pAllFalse
-      in getPAll y
+      let x = rand [x, if getR y then z else rTrue]
+          y = rand [x, rTrue]
+          z = rFalse
+      in getR y
     :}
 *** Exception: timed out
 
 Similarly, you have to make sure you recurse through one of these functions; @let x = x@ still does not work:
->>> withTimeout $ let x = x in getPAll x
+>>> withTimeout $ let x = x :: R CanBe in getR x
 *** Exception: timed out
->>> withTimeout $ let x = x &&& x in getPAll x
+>>> withTimeout $ let x = x &&& x in getR x
 True
 
 -}
 
 module Examples where
-import Data.Recursive.Bool
+import Data.Recursive.R
+import Data.Recursive.CanBe
+import qualified Data.Recursive.MustBe as MB
 import Data.Recursive.Set
 
 import System.Timeout

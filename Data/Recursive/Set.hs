@@ -1,30 +1,43 @@
-module Data.Recursive.Set (PSet, getPSet, pSet, pEmpty, pInsert, pUnion, pUnions)  where
+{-# LANGUAGE TypeFamilies #-}
+module Data.Recursive.Set (rEmpty, rInsert, rUnion, rUnions)  where
 
-import Data.Recursive
-import Data.Recursive.Bool
+import Data.Recursive.Internal
+import Data.Recursive.Class
+import Data.Recursive.CanBe.Internal
+import Data.Recursive.MustBe.Internal
 import qualified Data.Set as S
 import Data.Coerce
 
-newtype PSet a = PSet (R (S.Set a))
+instance Eq a => Order (S.Set a) where
+    type Val (S.Set a) = S.Set a
+    bottom = S.empty
 
-getPSet :: PSet a -> S.Set a
-getPSet (PSet r) = getR r
+rEmpty :: Eq a => R (S.Set a)
+rEmpty = r S.empty
 
-pSet :: S.Set a -> PSet a
-pSet = PSet . pureR
+rInsert :: Ord a => a -> R (S.Set a) -> R (S.Set a)
+rInsert x = coerce $ mapR (S.insert x)
 
-pEmpty :: PSet a
-pEmpty = pSet S.empty
+rDelete :: Ord a => a -> R (S.Set a) -> R (S.Set a)
+rDelete x = coerce $ mapR (S.delete x)
 
-pInsert :: Ord a => a -> PSet a -> PSet a
-pInsert x = coerce $ mapR S.empty (S.insert x)
+rFilter :: Ord a => (a -> Bool) -> R (S.Set a) -> R (S.Set a)
+rFilter f = coerce $ mapR (S.filter f)
 
-pUnion :: Ord a => PSet a -> PSet a -> PSet a
-pUnion = coerce $ liftR2 S.empty S.union
+rUnion :: Ord a => R (S.Set a) -> R (S.Set a) -> R (S.Set a)
+rUnion = coerce $ liftR2 S.union
 
-pUnions :: Ord a => [PSet a] -> PSet a
-pUnions = coerce $ liftRList S.empty S.unions
+rUnions :: Ord a => [R (S.Set a)] -> R (S.Set a)
+rUnions = coerce $ liftRList S.unions
 
--- TODO:
--- pElem :: Ord a => a -> PSet a -> PAny
--- (Requires a Data.Recursive.Bool.Internal module)
+rIntersection :: Ord a => R (S.Set a) -> R (S.Set a) -> R (S.Set a)
+rIntersection = coerce $ liftR2 S.intersection
+
+rMember :: Ord a => a -> R (S.Set a) -> R MustBe
+rMember x = coerce $ mapR (S.member x)
+
+rNotMember :: Ord a => a -> R (S.Set a) -> R CanBe
+rNotMember x = coerce $ mapR (S.notMember x)
+
+rDisjoint :: Ord a => R (S.Set a) -> R (S.Set a) -> R CanBe
+rDisjoint = coerce $ liftR2 S.disjoint
