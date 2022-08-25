@@ -13,7 +13,7 @@ jobs:
       name: Cache ~/.cabal/store
       with:
         path: ~/.cabal/store
-        key: cabal-${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('cabal.project', 'candid.cabal') }}
+        key: cabal-${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('cabal.project', 'rec-def.cabal') }}
     - uses: haskell/actions/setup@v1
       with:
         ghc-version: 9.0
@@ -21,7 +21,7 @@ jobs:
       run: |
         cabal update
         cabal haddock --haddock-hyperlink-source --haddock-quickjump --haddock-html-location='https://hackage.haskell.org/package/$pkg-$version/docs'
-        mv dist-newstyle/build/*/*/*/doc/html/candid gh-page
+        mv dist-newstyle/build/*/*/*/doc/html/rec-def gh-page
         touch gh-page/.nojekyll
     - name: Deploy to Github Pages
       uses: JamesIves/github-pages-deploy-action@releases/v3
