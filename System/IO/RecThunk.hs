@@ -10,11 +10,14 @@ The 'Thunk' API provides a way to defer potentially recursive computations:
 * 'force' triggers execution of the action passed to thunk, and does not return until
   *  the action is executed
   *  the action of any thunk kicked by the action is executed, etc.
-* Cycles are allowed: The action passed to 'thunk' may 'kick' that 'thunk'. Same for larger loops.
+* Cycles are allowed: The action passed to 'thunk' may 'kick' that 'thunk'.
+  Same for larger loops.
 
-The implementation is hopefully thread safe: Even if multiple threads force or kick related thunks, all actions are still run at most once, and all calls to force terminate (no deadlock)
+The implementation is hopefully thread safe: Even if multiple threads force or
+kick related thunks, all actions are still run at most once, and all calls to
+force terminate (no deadlock)
 -}
-module Data.Recursive.Thunk
+module System.IO.RecThunk
     ( Thunk
     , KickedThunk
     , thunk

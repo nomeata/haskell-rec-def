@@ -21,18 +21,27 @@ class POrder a => Bottom a where bottom :: a
 -- element.
 class POrder a => Top a where top :: a
 
+-- | The dual order
 instance POrder a => POrder (Dual a)
 
+-- | Bottom is the 'top' of @a@
 instance Top a => Bottom (Dual a) where bottom = Dual top
 
 -- Annoyingly, we have to give all instances here, to avoid orphans
 
--- | Arbitraily using the @False < True@ order
+-- | Arbitrary using the @False < True@ order
 instance POrder Bool
+
+-- | Bottom is 'False'
 instance Bottom Bool where bottom = False
+
+-- | Top is 'True'
 instance Top Bool where top = True
 
+-- | Ordered by 'S.subsetOf'
 instance Eq a => POrder (S.Set a)
+--
+-- | Bottom is 'S.empty'
 instance Eq a => Bottom (S.Set a) where bottom = S.empty
 
 

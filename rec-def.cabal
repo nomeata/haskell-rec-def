@@ -15,9 +15,9 @@ description:
    See [https://github.com/nomeata/haskell-rec-def/blob/master/examples.hs](examples.hs)
    for more examples, or just browse the modules
    .
+   * "Data.Recursive.Bool"
    * "Data.Recursive.Set"
-   * "Data.Recursive.CanBe"
-   * "Data.Recursive.MustBe"
+   * "Data.Recursive.DualBool"
    .
    For the (unsafe) building blocks to build such APIs, see "Data.Recursive.R.Internal".
 homepage:           https://github.com/nomeata/haskell-rec-def
@@ -37,12 +37,12 @@ tested-with: GHC==9.2.1, GHC==9.0.2, GHC==8.10.7, GHC==8.8.4, GHC==8.6.5, GHC==8
 library
     exposed-modules: Data.Recursive.Bool
     exposed-modules: Data.Recursive.DualBool
-    exposed-modules: Data.Recursive.Propagator
     exposed-modules: Data.Recursive.Set
-    exposed-modules: Data.Recursive.Thunk
     exposed-modules: Data.POrder
+    exposed-modules: System.IO.RecThunk
     exposed-modules: Data.Recursive.R
     exposed-modules: Data.Recursive.R.Internal
+    exposed-modules: Data.Recursive.Propagator
 
     build-depends:    base >= 4.9 && < 5
     build-depends:    containers >= 0.5.11 && < 0.7

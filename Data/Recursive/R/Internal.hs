@@ -36,7 +36,7 @@ import Data.Monoid
 import Data.Coerce
 
 import Data.Recursive.Propagator
-import Data.Recursive.Thunk
+import System.IO.RecThunk
 import Data.POrder
 
 data R a = R (Prop a) Thunk
