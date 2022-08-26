@@ -1,4 +1,8 @@
-module Data.Recursive.DualBool where
+module Data.Recursive.DualBool
+  ( R
+  , getRDual
+  , module Data.Recursive.DualBool
+  ) where
 
 import Data.Coerce
 import Data.Monoid

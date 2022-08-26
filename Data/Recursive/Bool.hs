@@ -1,4 +1,8 @@
-module Data.Recursive.Bool where
+module Data.Recursive.Bool
+  ( R
+  , getR
+  , module Data.Recursive.Bool
+  ) where
 
 import Data.Coerce
 import Data.Monoid
