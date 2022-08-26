@@ -35,15 +35,14 @@ extra-source-files:
 tested-with: GHC==9.2.1, GHC==9.0.2, GHC==8.10.7, GHC==8.8.4, GHC==8.6.5, GHC==8.4.4
 
 library
-    exposed-modules: Data.Recursive.CanBe
-    exposed-modules: Data.Recursive.CanBe.Internal
-    exposed-modules: Data.Recursive.MustBe
-    exposed-modules: Data.Recursive.MustBe.Internal
+    exposed-modules: Data.Recursive.Bool
+    exposed-modules: Data.Recursive.DualBool
     exposed-modules: Data.Recursive.Propagator
-    exposed-modules: Data.Recursive.R
-    exposed-modules: Data.Recursive.R.Internal
     exposed-modules: Data.Recursive.Set
     exposed-modules: Data.Recursive.Thunk
+    exposed-modules: Data.POrder
+    exposed-modules: Data.Recursive.R
+    exposed-modules: Data.Recursive.R.Internal
 
     build-depends:    base >= 4.9 && < 5
     build-depends:    containers >= 0.5.11 && < 0.7

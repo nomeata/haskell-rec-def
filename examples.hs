@@ -13,16 +13,17 @@ This is unfortunate, isn’t it?
 This library provides data types where this works. You can write the equations
 in that way just fine, and still get a result.
 
-For example, the 'R MustBe' type comes with functions that look quite like their ordinary counterparts acting on 'Bool'.
+For example, the 'R Bool' type comes with functions that look quite like their
+ordinary counterparts acting on 'Bool'.
 
 >>> :t rTrue
-rTrue :: R CanBe
+rTrue :: R Bool
 >>> :t rFalse
-rFalse :: R CanBe
+rFalse :: R Bool
 >>> :t (|||)
-(|||) :: R CanBe -> R CanBe -> R CanBe
+(|||) :: R Bool -> R Bool -> R Bool
 >>> :t (&&&)
-(&&&) :: R CanBe -> R CanBe -> R CanBe
+(&&&) :: R Bool -> R Bool -> R Bool
 >>> getR rTrue
 True
 >>> getR rFalse
@@ -31,53 +32,61 @@ False
 False
 >>> getR (rTrue &&& rTrue)
 True
->>> getR (rand [rTrue,  rFalse, rTrue])
-False
+>>> getR (ror [rTrue,  rFalse, rTrue])
+True
 
 So far so good, lets see what happens when we try something recursive:
 
->>> let x = rand [y]; y = rand [x, rFalse] in getR x
+>>> let x = ror [y]; y = rand [x, rFalse] in getR x
 False
->>> let x = rand [y]; y = rand [x, rTrue] in getR x
+>>> let x = ror [y]; y = ror [x, rFalse] in getR x
+False
+>>> let x = ror [y]; y = ror [x, rTrue] in getR x
 True
->>> let x = rand [y]; y = rand [x] in getR x
+>>> let x = ror [y]; y = ror [x] in getR x
+False
+
+The last equation is interesting: We essentially say that @x@ is @True@ if @y@ is
+@True@, and @y@ is @True@ if @x@ is @True@. This has two solutions, we can either set
+both to @True@ and both to @False@.
+
+We (arbitrary) choose to find the smallest solution, i.e. prefer @False@ and
+only find @True@ if we have to. This is useful, for example, if you check something recursive for errors.
+
+Sometimes you want the other one. Then you can use 'R (Dual Bool)'. The module
+"Data.Recursive.DualBool" exports all the functions for that type too. Because
+of the name class we have imported it qualified here. We can run run the same
+quations, and get different answers:
+
+>>> let x = DB.ror [y]; y = DB.rand [x, DB.rFalse] in getRDual x
+False
+>>> let x = DB.ror [y]; y = DB.ror [x, DB.rFalse] in getRDual x
 True
-
-The last equation is interesting: We essentially say that x is True if y is
-True, and y is True if x is True. This has two solutions, we can either set
-both to 'True' and both to 'False'.
-
-This is the reason why the type is 'R CanBe', and not just 'R Bool': It finds out whether the value _can_ be true. And abvoe, we see that indeed it can be True.
-
-There is also the dual, 'MustBe'. Because its module exports functions of the same name, we have imported it qualified. We can run run the same quations, and get different answers:
-
->>> let x = MB.rand [y]; y = MB.rand [x, r False] in getR x
-False
->>> let x = MB.rand [y]; y = MB.rand [x, r True] in getR x
-False
->>> let x = MB.rand [y]; y = MB.rand [x] in getR x
-False
+>>> let x = DB.ror [y]; y = DB.ror [x, DB.rTrue] in getRDual x
+True
+>>> let x = DB.ror [y]; y = DB.ror [x] in getRDual x
+True
 
 The negation function is also available, and goes from can-be-true to must-be-true and back:
 >>> :t rnot
-rnot :: R MB.MustBe -> R CanBe
->>> :t MB.rnot
-MB.rnot :: R CanBe -> R MB.MustBe
+rnot :: R (Dual Bool) -> R Bool
+>>> :t DB.rnot
+DB.rnot :: R Bool -> R (Dual Bool)
 
 This allows us to mix the different types in the same computation:
 >>> :{
-  let x = rnot y &&& rnot z
-      y = MB.rnot x MB.||| z
-      z = MB.rTrue
-  in (getR x, getR y, getR z)
+  let x = rnot y ||| rnot z
+      y = DB.rnot x DB.&&& z
+      z = DB.rTrue
+  in (getR x, getRDual y, getRDual z)
  :}
 (False,True,True)
 
 >>> :{
-  let x = rnot y &&& rnot z
-      y = MB.rnot x MB.||| z
-      z = MB.rFalse
-  in (getR x, getR y, getR z)
+  let x = rnot y ||| rnot z
+      y = DB.rnot x DB.&&& z
+      z = DB.rFalse
+  in (getR x, getRDual y, getRDual z)
  :}
 (True,False,False)
 
@@ -113,7 +122,6 @@ fromList [1,2,3]
 >>> reachable graph M.! 3
 fromList [3]
 
-
 Of course, the magic stops somewhere: Just like with the usual knot-tying
 tricks, you still have to make sure to be lazy enough. In particular, you should
 not peek at the value (e.g. using 'getR') while you are building the graph:
@@ -127,18 +135,19 @@ not peek at the value (e.g. using 'getR') while you are building the graph:
 *** Exception: timed out
 
 Similarly, you have to make sure you recurse through one of these functions; @let x = x@ still does not work:
->>> withTimeout $ let x = x :: R CanBe in getR x
+>>> withTimeout $ let x = x :: R Bool in getR x
 *** Exception: timed out
 >>> withTimeout $ let x = x &&& x in getR x
-True
+False
 
 -}
 module Examples where
 
 import Data.Recursive.R
-import Data.Recursive.CanBe
-import qualified Data.Recursive.MustBe as MB
+import Data.Recursive.Bool
+import qualified Data.Recursive.DualBool as DB
 import Data.Recursive.Set
+import Data.Monoid
 
 import System.Timeout
 import Control.Exception
