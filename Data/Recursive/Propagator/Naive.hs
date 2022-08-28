@@ -4,6 +4,8 @@ module Data.Recursive.Propagator.Naive
     ( Prop
     , newProp
     , readProp
+    , watchProp
+    , setProp
     , lift1
     , lift2
     , liftList
@@ -33,7 +35,7 @@ setProp (Prop m notify) x = do
     unless (old == x) $ join (readMVar notify)
 
 watchProp :: Prop a -> IO () -> IO ()
-watchProp (Prop m notify) f = 
+watchProp (Prop m notify) f =
     modifyMVar_ notify $ \a -> pure (f >> a)
 
 -- TODO: Is this implementation thread-safe?

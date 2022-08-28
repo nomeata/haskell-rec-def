@@ -54,3 +54,7 @@ rand = defRList go
 ror :: [R Bool] -> R Bool
 ror = defRList $ \ps p ->
     mapM_ (`implies` p) ps
+
+rnot :: R (Dual Bool) -> R Bool
+rnot = defR1 $ coerce $ \p1 p -> do
+    whenTrue p1 (setTrue p)
