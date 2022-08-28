@@ -68,3 +68,16 @@ test-suite doctest
     build-depends:    base >= 4.9 && < 5
     build-depends:    doctest ^>= 0.18.2
 
+
+test-suite dejafu
+    type:             exitcode-stdio-1.0
+    other-modules:    Data.Recursive.Propagator.Naive
+    main-is:          dejafu.hs
+    default-language: Haskell2010
+    ghc-options:      -threaded
+
+    build-depends:    base >= 4.9 && < 5
+    build-depends:    containers >= 0.5.11 && < 0.7
+    build-depends:    concurrency ^>= 1.11.0.2
+    build-depends:    dejafu ^>= 2.4.0.3
+    build-depends:    random
