@@ -13,7 +13,7 @@ import qualified Data.Recursive.Propagator.Naive as Naive
 import Data.Recursive.Propagator.P2
 import Data.POrder
 
--- | The Propagator class defines some function shared by different propagator
+-- | The Propagator class defines some functions shared by different propagator
 -- implementations. This backs the generic "Data.Recursive.R.Internal" wrapper.
 class Propagator p x | p -> x where
     -- | The type of values inside the propagator
