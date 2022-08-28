@@ -12,8 +12,7 @@ import Data.Monoid
 
 import Data.Recursive.R.Internal
 import Data.Recursive.R
-import Data.Recursive.Propagator.Bool
-import Data.Recursive.Propagator.Class
+import Data.Recursive.Propagator.P2
 
 rTrue :: R (Dual Bool)
 rTrue = r (Dual True)
@@ -23,18 +22,18 @@ rFalse = r (Dual False)
 
 (|||) :: R (Dual Bool) -> R (Dual Bool) -> R (Dual Bool)
 (|||) = defR2 $ coerce $ \p1 p2 p ->
-    whenTrue p1 (whenTrue p2 (setTrue p))
+    whenTop p1 (whenTop p2 (setTop p))
 
 (&&&) :: R (Dual Bool) -> R (Dual Bool) -> R (Dual Bool)
 (&&&) = defR2 $ coerce $ \p1 p2 p -> do
-    whenTrue p1 (setTrue p)
-    whenTrue p2 (setTrue p)
+    whenTop p1 (setTop p)
+    whenTop p2 (setTop p)
 
 ror :: [R (Dual Bool)] -> R (Dual Bool)
 ror = defRList $ coerce go
   where
-    go [] p = setTrue p
-    go (p':ps) p = whenTrue p' (go ps p)
+    go [] p = setTop p
+    go (p':ps) p = whenTop p' (go ps p)
 
 rand :: [R (Dual Bool)] -> R (Dual Bool)
 rand = defRList $ coerce $ \ps p ->
@@ -42,4 +41,4 @@ rand = defRList $ coerce $ \ps p ->
 
 rnot :: R Bool -> R (Dual Bool)
 rnot = defR1 $ coerce $ \p1 p -> do
-    whenTrue p1 (setTrue p)
+    implies p1 p

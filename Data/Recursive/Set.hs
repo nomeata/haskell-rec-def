@@ -13,7 +13,7 @@ import Control.Monad
 
 import Data.Recursive.R.Internal
 import Data.Recursive.Propagator.Naive
-import Data.Recursive.Propagator.Bool
+import Data.Recursive.Propagator.P2
 
 rEmpty :: Eq a => R (S.Set a)
 rEmpty = r S.empty
@@ -40,15 +40,15 @@ rMember :: Ord a => a -> R (S.Set a) -> R Bool
 rMember x = defR1 $ \ps pb -> watchProp ps $ do
     let update = do
             s <- readProp ps
-            when (S.member x s) $ setTrue pb
+            when (S.member x s) $ coerce setTop pb
     watchProp ps update
     update
 
 rNotMember :: Ord a => a -> R (S.Set a) -> R (Dual Bool)
-rNotMember x = defR1 $ \ps (PDualBool pb) -> do
+rNotMember x = defR1 $ \ps pb -> do
     let update = do
             s <- readProp ps
-            when (S.notMember x s) $ setTrue pb
+            when (S.notMember x s) $ coerce setTop pb
     watchProp ps update
     update
 
@@ -57,7 +57,7 @@ rDisjoint = defR2 $ \ps1 ps2 (PDualBool pb) -> do
     let update = do
             s1 <- readProp ps1
             s2 <- readProp ps2
-            when (S.disjoint s1 s2) $ setTrue pb
+            when (S.disjoint s1 s2) $ coerce setTop pb
     watchProp ps1 update
     watchProp ps2 update
     update

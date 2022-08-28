@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 module Data.Recursive.Bool
   ( R
   , getR
@@ -9,7 +10,7 @@ import Data.Monoid
 
 import Data.Recursive.R.Internal
 import Data.Recursive.R
-import Data.Recursive.Propagator.Bool
+import Data.Recursive.Propagator.P2
 
 rTrue :: R Bool
 rTrue = r True
@@ -37,24 +38,24 @@ rnot = defR1 $ lift1 $ coerce not
 -}
 
 (&&&) :: R Bool -> R Bool -> R Bool
-(&&&) = defR2 $ \p1 p2 p ->
-    whenTrue p1 (whenTrue p2 (setTrue p))
+(&&&) = defR2 $ coerce $ \p1 p2 p ->
+    whenTop p1 (whenTop p2 (setTop p))
 
 (|||) :: R Bool -> R Bool -> R Bool
-(|||) = defR2 $ \p1 p2 p -> do
-    whenTrue p1 (setTrue p)
-    whenTrue p2 (setTrue p)
+(|||) = defR2 $ coerce $ \p1 p2 p -> do
+    whenTop p1 (setTop p)
+    whenTop p2 (setTop p)
 
 rand :: [R Bool] -> R Bool
-rand = defRList go
+rand = defRList $ coerce go
   where
-    go [] p = setTrue p
-    go (p':ps) p = whenTrue p' (go ps p)
+    go [] p = setTop p
+    go (p':ps) p = whenTop p' (go ps p)
 
 ror :: [R Bool] -> R Bool
-ror = defRList $ \ps p ->
-    mapM_ (`implies` p) ps
+ror = defRList $ coerce $ \ps p ->
+    mapM_ @[] (`implies` p) ps
 
 rnot :: R (Dual Bool) -> R Bool
 rnot = defR1 $ coerce $ \p1 p -> do
-    whenTrue p1 (setTrue p)
+    implies p1 p

@@ -10,7 +10,7 @@ import qualified Data.Set as S
 import Data.Coerce
 
 import qualified Data.Recursive.Propagator.Naive as Naive
-import qualified Data.Recursive.Propagator.Bool as PBool
+import Data.Recursive.Propagator.P2
 import Data.POrder
 
 -- | The Propagator class defines some function shared by different propagator
@@ -26,17 +26,17 @@ instance Bottom x => Propagator (Naive.Prop x) x where
     newConstProp = Naive.newProp
     readProp = Naive.readProp
 
-instance Propagator PBool.PBool Bool where
-    newProp = PBool.maybeTrue
-    newConstProp True = PBool.surelyTrue
-    newConstProp False = PBool.surelyFalse
-    readProp = PBool.mustBeTrue
+instance Propagator PBool Bool where
+    newProp = coerce newP2
+    newConstProp False = coerce newP2
+    newConstProp True = coerce newTopP2
+    readProp = coerce isTop
 
-instance Propagator PBool.PDualBool (Dual Bool) where
-    newProp = coerce $ PBool.maybeTrue
-    newConstProp (Dual True) = coerce $ PBool.surelyFalse
-    newConstProp (Dual False) = coerce $ PBool.surelyTrue
-    readProp p = Dual . not <$> coerce PBool.mustBeTrue p
+instance Propagator PDualBool (Dual Bool) where
+    newProp = coerce newP2
+    newConstProp (Dual True) = coerce newP2
+    newConstProp (Dual False) = coerce newTopP2
+    readProp = coerce $ fmap not . isTop
 
 -- | The HasPropagator class is used to pick a propagator implementation for a
 -- particular value type.
@@ -44,10 +44,10 @@ class Propagator (Prop x) x => HasPropagator x where
     type Prop x
 
 instance HasPropagator Bool where
-    type Prop Bool = PBool.PBool
+    type Prop Bool = PBool
 
 instance HasPropagator (Dual Bool) where
-    type Prop (Dual Bool) = PBool.PDualBool
+    type Prop (Dual Bool) = PDualBool
 
 instance Eq a => HasPropagator (S.Set a) where
     type Prop (S.Set a) = Naive.Prop (S.Set a)
