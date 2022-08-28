@@ -1,6 +1,6 @@
 -- | A very naive propagator library
 --
-module Data.Recursive.Propagator
+module Data.Recursive.Propagator.Naive
     ( Prop
     , newProp
     , readProp
@@ -9,8 +9,6 @@ module Data.Recursive.Propagator
     , liftList
     )
     where
-
-
 
 import Control.Concurrent.MVar
 import Control.Monad

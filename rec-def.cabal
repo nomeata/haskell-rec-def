@@ -19,7 +19,11 @@ description:
    * "Data.Recursive.Set"
    * "Data.Recursive.DualBool"
    .
-   For the (unsafe) building blocks to build such APIs, see "Data.Recursive.R.Internal".
+   For the (unsafe) building blocks to build such APIs, see
+   * "Data.Recursive.R.Internal" for the wrapper that turns an IO-implemented
+     propagator into a pure data structure
+   * "Data.Recursive.Propagator.Naive" for a naive propagator implementation
+
 homepage:           https://github.com/nomeata/haskell-rec-def
 bug-reports:        https://github.com/nomeata/haskell-rec-def/issues/new
 license:            BSD-2-Clause
@@ -42,7 +46,7 @@ library
     exposed-modules: System.IO.RecThunk
     exposed-modules: Data.Recursive.R
     exposed-modules: Data.Recursive.R.Internal
-    exposed-modules: Data.Recursive.Propagator
+    exposed-modules: Data.Recursive.Propagator.Naive
 
     build-depends:    base >= 4.9 && < 5
     build-depends:    containers >= 0.5.11 && < 0.7

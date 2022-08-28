@@ -35,7 +35,7 @@ import Control.Monad.ST
 import Data.Monoid
 import Data.Coerce
 
-import Data.Recursive.Propagator
+import Data.Recursive.Propagator.Naive
 import System.IO.RecThunk
 import Data.POrder
 
