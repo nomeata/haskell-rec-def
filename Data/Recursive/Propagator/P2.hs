@@ -59,7 +59,7 @@ implies :: P2 -> P2 -> IO ()
 implies p1 p2 = whenTop p1 (setTop p2)
 
 -- | Queries the current state of the propagator. All related calls to @setTop@
--- that have executed so fa are taken into account.
+-- that have executed so far are taken into account.
 isTop :: P2 -> IO Bool
 isTop (P2 p) = readMVar p >>= \case
     SurelyTop -> pure True
