@@ -1,6 +1,8 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
 module Data.Recursive.Propagator.Class where
 
 import Data.Monoid (Dual)
@@ -11,22 +13,20 @@ import Data.POrder
 
 -- | The Propagator class defines some function shared by different propagator
 -- implementations. This backs the generic "Data.Recursive.R.Internal" wrapper.
-class Propagator p where
+class Propagator p x | p -> x where
     -- | The type of values inside the propagator
-    type PropVal p
     newProp :: IO p
-    newConstProp :: PropVal p -> IO p
-    readProp :: p -> IO (PropVal p)
+    newConstProp :: x -> IO p
+    readProp :: p -> IO x
 
-instance Bottom x => Propagator (Naive.Prop x) where
-    type PropVal (Naive.Prop x) = x
+instance Bottom x => Propagator (Naive.Prop x) x where
     newProp = Naive.newProp bottom
     newConstProp = Naive.newProp
     readProp = Naive.readProp
 
 -- | The HasPropagator class is used to pick a propagator implementation for a
 -- particular value type.
-class (Propagator (Prop x), PropVal (Prop x) ~ x) => HasPropagator x where
+class Propagator (Prop x) x => HasPropagator x where
     type Prop x
 
 instance HasPropagator Bool where
