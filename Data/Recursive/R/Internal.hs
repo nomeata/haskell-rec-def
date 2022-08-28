@@ -25,7 +25,7 @@
 
 module Data.Recursive.R.Internal
     ( R
-    , r, mapR, liftR2, liftRList
+    , r, defR1, defR2, defRList
     , getR, getRDual
     )
 where
@@ -35,46 +35,51 @@ import Control.Monad.ST
 import Data.Monoid
 import Data.Coerce
 
-import Data.Recursive.Propagator.Naive
+import Data.Recursive.Propagator.Class
 import System.IO.RecThunk
-import Data.POrder
 
 data R a = R (Prop a) Thunk
 
-r :: a -> R a
+r :: HasPropagator a => a -> R a
 r x = unsafePerformIO $ do
-    p <- newProp x
+    p <- newConstProp x
     t <- doneThunk
     pure (R p t)
 
-newR :: Bottom a => (Prop a -> IO [KickedThunk]) -> R a
+newR :: HasPropagator a => (Prop a -> IO [KickedThunk]) -> R a
 newR act = unsafePerformIO $ do
-    p <- newProp bottom
+    p <- newProp
     t <- thunk (act p)
     pure (R p t)
 
-mapR :: Bottom b => (a -> b) -> R a -> R b
-mapR f r1 = newR $ \p -> do
+defR1 :: (HasPropagator a, HasPropagator b) =>
+    (Prop a -> Prop b -> IO ()) ->
+    R a -> R b
+defR1 def r1 = newR $ \p -> do
     let R p1 t1 = r1
-    lift1 f p1 p
+    def p1 p
     mapM kick [t1]
 
-liftR2 :: Bottom c => (a -> b -> c) -> R a -> R b -> R c
-liftR2 f r1 r2 = newR $ \p -> do
+defR2 :: (HasPropagator a, HasPropagator b, HasPropagator c) =>
+    (Prop a -> Prop b -> Prop c -> IO ()) ->
+    R a -> R b -> R c
+defR2 def r1 r2 = newR $ \p -> do
     let R p1 t1 = r1
     let R p2 t2 = r2
-    lift2 f p1 p2 p
+    def p1 p2 p
     mapM kick [t1, t2]
 
-liftRList :: Bottom c => ([a] -> c) -> [R a] -> R c
-liftRList f rs = newR $ \p -> do
-    liftList f [ p' | R p' _ <- rs] p
+defRList :: (HasPropagator a, HasPropagator b) =>
+    ([Prop a] -> Prop b -> IO ()) ->
+    [R a] -> R b
+defRList def rs = newR $ \p -> do
+    def [ p' | R p' _ <- rs] p
     mapM (\(R _ t) -> kick t) rs
 
-getR :: R a -> a
+getR :: HasPropagator a => R a -> a
 getR (R p t) = unsafePerformIO $ do
     force t
     readProp p
 
-getRDual :: R (Dual a) -> a
+getRDual :: HasPropagator (Dual a) => R (Dual a) -> a
 getRDual = getDual . getR

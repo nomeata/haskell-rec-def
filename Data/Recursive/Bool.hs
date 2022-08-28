@@ -9,6 +9,7 @@ import Data.Monoid
 
 import Data.Recursive.R.Internal
 import Data.Recursive.R
+import Data.Recursive.Propagator.Naive
 
 rTrue :: R Bool
 rTrue = r True
@@ -17,16 +18,16 @@ rFalse :: R Bool
 rFalse = r False
 
 (&&&) :: R Bool -> R Bool -> R Bool
-(&&&) = liftR2 (&&)
+(&&&) = defR2 $ lift2 (&&)
 
 (|||) :: R Bool -> R Bool -> R Bool
-(|||) = liftR2 (||)
+(|||) = defR2 $ lift2 (||)
 
 rand :: [R Bool] -> R Bool
-rand = liftRList and
+rand = defRList $ liftList and
 
 ror :: [R Bool] -> R Bool
-ror = liftRList or
+ror = defRList $ liftList or
 
 rnot :: R (Dual Bool) -> R Bool
-rnot = mapR $ coerce not
+rnot = defR1 $ lift1 $ coerce not
