@@ -9,6 +9,7 @@ import Data.Monoid (Dual)
 import qualified Data.Set as S
 
 import qualified Data.Recursive.Propagator.Naive as Naive
+import qualified Data.Recursive.Propagator.Bool as PBool
 import Data.POrder
 
 -- | The Propagator class defines some function shared by different propagator
@@ -23,6 +24,12 @@ instance Bottom x => Propagator (Naive.Prop x) x where
     newProp = Naive.newProp bottom
     newConstProp = Naive.newProp
     readProp = Naive.readProp
+
+instance Propagator PBool.PBool Bool where
+    newProp = PBool.maybeTrue
+    newConstProp True = PBool.surelyTrue
+    newConstProp False = PBool.surelyFalse
+    readProp = PBool.mustBeTrue
 
 -- | The HasPropagator class is used to pick a propagator implementation for a
 -- particular value type.

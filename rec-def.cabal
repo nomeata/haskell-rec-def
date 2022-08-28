@@ -47,6 +47,8 @@ library
     exposed-modules: Data.Recursive.R
     exposed-modules: Data.Recursive.R.Internal
     exposed-modules: Data.Recursive.Propagator.Naive
+    exposed-modules: Data.Recursive.Propagator.Class
+    exposed-modules: Data.Recursive.Propagator.Bool
 
     build-depends:    base >= 4.9 && < 5
     build-depends:    containers >= 0.5.11 && < 0.7
