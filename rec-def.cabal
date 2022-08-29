@@ -75,7 +75,8 @@ test-suite dejafu
     other-modules:    System.IO.RecThunk
     main-is:          dejafu.hs
     default-language: Haskell2010
-    ghc-options:      -threaded -DDEJAFU
+    ghc-options:      -threaded
+    cpp-options:      -DDEJAFU
 
     build-depends:    base >= 4.9 && < 5
     build-depends:    containers >= 0.5.11 && < 0.7

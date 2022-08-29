@@ -88,14 +88,14 @@ main = defaultMain $ testGroup "tests" $
             , lift1 (S.insert 5) p4 p1
             ]
         mapConcurrently readProp [p1, p2, p3, p4]
-  , tr "thunk 1" $ do
+  , t "thunk 1" $ do
         obs1 <- newIORef 0
         t1 <- thunk $ do
             atomicModifyIORef' obs1 (\x -> (succ x, ()))
             pure []
         force t1
         readIORef obs1
-  , tr "thunk 1 rec" $ do
+  , t "thunk 1 rec" $ do
         obs1 <- newIORef 0
         t1ref <- newIORef undefined
         t1 <- thunk $ do
@@ -105,6 +105,22 @@ main = defaultMain $ testGroup "tests" $
         writeIORef t1ref t1
         force t1
         readIORef obs1
+  , t "thunk 2 rec 12" $ do
+        obs1 <- newIORef 0
+        obs2 <- newIORef 0
+        t2ref <- newIORef undefined
+        t1 <- thunk $ do
+            atomicModifyIORef' obs1 (\x -> (succ x, ()))
+            t2 <- readIORef t2ref
+            mapM kick [t2]
+        t2 <- thunk $ do
+            atomicModifyIORef' obs1 (\x -> (succ x, ()))
+            mapM kick [t1]
+        writeIORef t2ref t2
+        mapConcurrently id
+            [ force t1 >> mapM readIORef [obs1, obs2]
+            , force t2 >> mapM readIORef [obs1, obs2]
+            ]
   , tr "thunk 2 rec 112" $ do
         obs1 <- newIORef 0
         obs2 <- newIORef 0
@@ -116,6 +132,27 @@ main = defaultMain $ testGroup "tests" $
         t2 <- thunk $ do
             atomicModifyIORef' obs1 (\x -> (succ x, ()))
             mapM kick [t1]
+        writeIORef t2ref t2
+        mapConcurrently id
+            [ force t1 >> mapM readIORef [obs1, obs2]
+            , force t1 >> mapM readIORef [obs1, obs2]
+            , force t2 >> mapM readIORef [obs1, obs2]
+            ]
+  , tr "thunk 2 all-rec 112" $ do
+        obs1 <- newIORef 0
+        obs2 <- newIORef 0
+        t1ref <- newIORef undefined
+        t2ref <- newIORef undefined
+        t1 <- thunk $ do
+            atomicModifyIORef' obs1 (\x -> (succ x, ()))
+            t1 <- readIORef t1ref
+            t2 <- readIORef t2ref
+            mapM kick [t2,t1]
+        writeIORef t1ref t1
+        t2 <- thunk $ do
+            atomicModifyIORef' obs1 (\x -> (succ x, ()))
+            t2 <- readIORef t2ref
+            mapM kick [t1,t2]
         writeIORef t2ref t2
         mapConcurrently id
             [ force t1 >> mapM readIORef [obs1, obs2]
