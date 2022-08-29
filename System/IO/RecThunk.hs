@@ -32,7 +32,7 @@ where
 -- I want to test this code with dejafu, without carrying it as a dependency
 -- of the main library. So here is a bit of CPP to care for that.
 
-#ifdef MIN_VERSION_dejafu
+#ifdef DEJAFU
 
 #define Ctxt   MonadConc m =>
 #define Thunk_  (Thunk m)
