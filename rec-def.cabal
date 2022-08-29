@@ -71,8 +71,9 @@ test-suite doctest
 
 test-suite dejafu
     type:             exitcode-stdio-1.0
-    other-modules:    Data.Recursive.Propagator.Naive
     other-modules:    System.IO.RecThunk
+    other-modules:    Data.Recursive.Propagator.Naive
+    other-modules:    Data.Recursive.Propagator.P2
     main-is:          dejafu.hs
     default-language: Haskell2010
     ghc-options:      -threaded

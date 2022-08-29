@@ -8,6 +8,7 @@ import Test.Tasty
 import Test.Tasty.DejaFu
 
 import Data.Recursive.Propagator.Naive
+import Data.Recursive.Propagator.P2
 import System.IO.RecThunk
 
 t n = testGroup n . pure . testAuto
@@ -159,4 +160,44 @@ main = defaultMain $ testGroup "tests" $
             , force t1 >> mapM readIORef [obs1, obs2]
             , force t2 >> mapM readIORef [obs1, obs2]
             ]
+  , t "P2 1" $ do
+    p1 <- newP2
+    False <- isTop p1
+    setTop p1
+    True <- isTop p1
+    pure ()
+  , t "P2 2" $ do
+    p1 <- newP2
+    p2 <- newP2
+    mapConcurrently id
+        [ do
+            False <- isTop p1
+            setTop p1
+            True <- isTop p1
+            pure ()
+        , do
+            False <- isTop p2
+            p1 `implies` p2
+        ]
+    True <- isTop p2
+    pure ()
+  , t "P2 2 rec bottom" $ do
+    p1 <- newP2
+    p2 <- newP2
+    mapConcurrently id
+        [  p1 `implies` p2
+        ,  p2 `implies` p1
+        ]
+    [False, False] <- mapM isTop [p1,p2]
+    pure ()
+  , t "P2 2 rec top" $ do
+    p1 <- newP2
+    p2 <- newP2
+    mapConcurrently id
+        [  p1 `implies` p2
+        ,  p2 `implies` p1
+        , setTop p1
+        ]
+    [True, True] <- mapM isTop [p1,p2]
+    pure ()
   ]
