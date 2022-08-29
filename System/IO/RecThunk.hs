@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE CPP #-}
 
 {-|
 
@@ -27,16 +28,50 @@ module System.IO.RecThunk
     )
 where
 
+
+-- I want to test this code with dejafu, without carrying it as a dependency
+-- of the main library. So here is a bit of CPP to care for that.
+
+#ifdef MIN_VERSION_dejafu
+
+#define Ctxt   MonadConc m =>
+#define Thunk_  (Thunk m)
+#define ResolvingState_  (ResolvingState m)
+#define KickedThunk_  (KickedThunk m)
+#define ThreadId_  (ThreadId m)
+#define IORef_ IORef m
+#define MVar_  MVar m
+#define M      m
+
+import Control.Concurrent.Classy hiding (wait)
+
+#else
+
+#define Ctxt
+#define Thunk_  Thunk
+#define ResolvingState_  ResolvingState
+#define KickedThunk_  KickedThunk
+#define ThreadId_  ThreadId
+#define IORef_ IORef
+#define MVar_  MVar
+#define M      IO
+
+import Control.Concurrent.MVar
 import Control.Concurrent
+import Data.IORef
 
-newtype Thunk = Thunk (MVar (Either (IO [KickedThunk]) KickedThunk))
-data ResolvingState = NotStarted | ProcessedBy ThreadId (MVar ()) | Done
-data KickedThunk = KickedThunk (MVar [KickedThunk]) (MVar ResolvingState)
+#endif
 
-thunk :: IO [KickedThunk] -> IO Thunk
+
+
+newtype Thunk_ = Thunk (MVar_ (Either (M [KickedThunk_]) KickedThunk_))
+data ResolvingState_ = NotStarted | ProcessedBy ThreadId_ (MVar_ ()) | Done
+data KickedThunk_ = KickedThunk (MVar_ [KickedThunk_]) (MVar_ ResolvingState_)
+
+thunk :: Ctxt M [KickedThunk_] -> M Thunk_
 thunk act = Thunk <$> newMVar (Left act)
 
-doneThunk :: IO Thunk
+doneThunk :: Ctxt M Thunk_
 doneThunk = do
     mv_ts <- newMVar []
     mv_s <- newMVar Done
@@ -44,7 +79,7 @@ doneThunk = do
 
 -- Recursively explores the thunk, and kicks the execution
 -- May return before before execution is done (if started by another thread)
-kick :: Thunk -> IO KickedThunk
+kick :: Ctxt Thunk_ -> M KickedThunk_
 kick (Thunk t) = takeMVar t >>= \case
     Left act -> do
         mv_thunks <- newEmptyMVar
@@ -61,7 +96,7 @@ kick (Thunk t) = takeMVar t >>= \case
         putMVar t (Right kt)
         pure kt
 
-wait :: KickedThunk -> IO ()
+wait :: Ctxt KickedThunk_ -> M ()
 wait (KickedThunk mv_deps mv_s) = do
     my_id <- myThreadId
     s <- takeMVar mv_s
@@ -87,7 +122,7 @@ wait (KickedThunk mv_deps mv_s) = do
             -- Wake up waiting threads
             putMVar done_mv ()
 
-force :: Thunk -> IO ()
+force :: Ctxt Thunk_ -> M ()
 force t = do
     rt <- kick t
     wait rt
