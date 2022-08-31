@@ -6,6 +6,7 @@ import Control.Monad.ST
 import Data.Monoid
 import Data.Coerce
 import qualified Data.Set as S
+import Numeric.Natural
 
 -- | This (empty) class indicates that the type @a@ is partially ordered.
 -- The class is empty because we do not need any of the operations on runtime.
@@ -41,8 +42,18 @@ instance Top Bool where top = True
 
 -- | Ordered by 'S.subsetOf'
 instance Eq a => POrder (S.Set a)
---
+
 -- | Bottom is 'S.empty'
 instance Eq a => Bottom (S.Set a) where bottom = S.empty
 
+-- | Ordered by '(<=)f'
+instance POrder Natural
 
+-- | Bottom is 0
+instance Bottom Natural where bottom = 0
+
+-- | Adds 'Nothing' as a least element to an existing partial order
+instance POrder a => POrder (Maybe a)
+
+-- | Bottom is 'Nothing'
+instance POrder a => Bottom (Maybe a) where bottom = Nothing
