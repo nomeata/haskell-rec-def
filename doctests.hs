@@ -1,2 +1,2 @@
 import Test.DocTest
-main = doctest ["examples.hs", "--fast"]
+main = doctest ["--fast", "Data/"]

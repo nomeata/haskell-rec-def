@@ -1,6 +1,6 @@
 {-|
 
-This file contains a few examples of using this library.
+This file contains a few examples of using the @rec-def@ library. There is no need to actually use this module.
 
 Imagine you are trying to calculate a boolean value, but your calculation is
 happens to be recursive. Just writing down the equations does not work:
@@ -53,7 +53,7 @@ both to @True@ and both to @False@.
 We (arbitrary) choose to find the smallest solution, i.e. prefer @False@ and
 only find @True@ if we have to. This is useful, for example, if you check something recursive for errors.
 
-Sometimes you want the other one. Then you can use 'R (Dual Bool)'. The module
+Sometimes you want the other one. Then you can use @R (Dual Bool)@. The module
 "Data.Recursive.DualBool" exports all the functions for that type too. Because
 of the name class we have imported it qualified here. We can run run the same
 quations, and get different answers:
@@ -68,12 +68,14 @@ True
 True
 
 The negation function is also available, and goes from can-be-true to must-be-true and back:
+
 >>> :t rnot
 rnot :: R (Dual Bool) -> R Bool
 >>> :t DB.rnot
 DB.rnot :: R Bool -> R (Dual Bool)
 
 This allows us to mix the different types in the same computation:
+
 >>> :{
   let x = rnot y ||| rnot z
       y = DB.rnot x DB.&&& z
@@ -125,6 +127,7 @@ fromList [3]
 Of course, the magic stops somewhere: Just like with the usual knot-tying
 tricks, you still have to make sure to be lazy enough. In particular, you should
 not peek at the value (e.g. using 'getR') while you are building the graph:
+
 >>> :{
     withTimeout $
       let x = rand [x, if getR y then z else rTrue]
@@ -135,13 +138,14 @@ not peek at the value (e.g. using 'getR') while you are building the graph:
 *** Exception: timed out
 
 Similarly, you have to make sure you recurse through one of these functions; @let x = x@ still does not work:
+
 >>> withTimeout $ let x = x :: R Bool in getR x
 *** Exception: timed out
 >>> withTimeout $ let x = x &&& x in getR x
 False
 
 -}
-module Examples where
+module Data.Recursive.Examples () where
 
 import Data.Recursive.R
 import Data.Recursive.Bool
@@ -159,4 +163,3 @@ withTimeout :: a -> IO a
 withTimeout a =
     fromMaybe (errorWithoutStackTrace "timed out") <$>
         timeout 100000 (evaluate a)
-

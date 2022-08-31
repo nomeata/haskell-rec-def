@@ -12,8 +12,7 @@ description:
    .
    will not loop, but rather  produce the set @fromList [23,42]@
    .
-   See [https://github.com/nomeata/haskell-rec-def/blob/master/examples.hs](examples.hs)
-   for more examples, or just browse the modules
+   See "Data.Recursive.Examples" for more examples, or just browse the modules
    .
    * "Data.Recursive.Bool"
    * "Data.Recursive.Set"
@@ -42,6 +41,7 @@ extra-source-files:
 tested-with: GHC==9.2.1, GHC==9.0.2, GHC==8.10.7, GHC==8.8.4, GHC==8.6.5, GHC==8.4.4
 
 library
+    exposed-modules: Data.Recursive.Examples
     exposed-modules: Data.Recursive.Bool
     exposed-modules: Data.Recursive.DualBool
     exposed-modules: Data.Recursive.Set
