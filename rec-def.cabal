@@ -25,6 +25,11 @@ description:
    * "Data.Recursive.Propagator.Naive" for a naive propagator implementation
    * "Data.Recursive.Propagator.P2" for a smarter propagator implementation for
      the two-point lattice, i.e. 'Bool'
+   .
+   The library is not (yet) focussed on performance, and uses a rather naive
+   propagator implementation. Expect this to be slow if you have large graphs.
+   This may be improved in the future, but for now the focus is on foremost
+   providing this capability in the first place.
 
 homepage:           https://github.com/nomeata/haskell-rec-def
 bug-reports:        https://github.com/nomeata/haskell-rec-def/issues/new
