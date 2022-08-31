@@ -77,7 +77,7 @@ rand :: [R (Dual Bool)] -> R (Dual Bool)
 rand = defRList $ coerce $ \ps p ->
     mapM_ @[] (`implies` p) ps
 
--- | prop> getRDual (rnot r1) === not r1
+-- | prop> getRDual (rnot r1) === not (getR r1)
 rnot :: R Bool -> R (Dual Bool)
 rnot = defR1 $ coerce $ \p1 p -> do
     implies p1 p

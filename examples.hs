@@ -1,6 +1,9 @@
 {-|
 
-This file contains a few examples of using the @rec-def@ library. There is no need to actually use this module.
+This file contains a few examples of using the @rec-def@ library. There is no
+need to actually use this module.
+
+= A @rec-def@ tutorial
 
 Imagine you are trying to calculate a boolean value, but your calculation is
 happens to be recursive. Just writing down the equations does not work:
@@ -9,6 +12,8 @@ happens to be recursive. Just writing down the equations does not work:
 *** Exception: timed out
 
 This is unfortunate, isn’t it?
+
+== A @Bool@ with recursive equations
 
 This library provides data types where this works. You can write the equations
 in that way just fine, and still get a result.
@@ -46,11 +51,13 @@ True
 >>> let x = ror [y]; y = ror [x] in getR x
 False
 
+== Least or greatest solution
+
 The last equation is interesting: We essentially say that @x@ is @True@ if @y@ is
 @True@, and @y@ is @True@ if @x@ is @True@. This has two solutions, we can either set
 both to @True@ and both to @False@.
 
-We (arbitrary) choose to find the smallest solution, i.e. prefer @False@ and
+We (arbitrary) choose to find the least solution, i.e. prefer @False@ and
 only find @True@ if we have to. This is useful, for example, if you check something recursive for errors.
 
 Sometimes you want the other one. Then you can use @R (Dual Bool)@. The module
@@ -92,6 +99,8 @@ This allows us to mix the different types in the same computation:
  :}
 (True,False,False)
 
+== Sets
+
 We do not have to stop with booleans, and can define similar APIs for other
 data stuctures, e.g. sets:
 
@@ -124,6 +133,8 @@ fromList [1,2,3]
 >>> reachable graph M.! 3
 fromList [3]
 
+== Caveats
+
 Of course, the magic stops somewhere: Just like with the usual knot-tying
 tricks, you still have to make sure to be lazy enough. In particular, you should
 not peek at the value (e.g. using 'getR') while you are building the graph:
@@ -143,6 +154,23 @@ Similarly, you have to make sure you recurse through one of these functions; @le
 *** Exception: timed out
 >>> withTimeout $ let x = x &&& x in getR x
 False
+
+We belive that the APIs provided here are still “pure”: evaluation order does not affect the results, and you can replace equals with equals, in the sense that
+
+> let s = rInsert 42 s in s
+
+is the same as
+
+> let s = rInsert 42 s in rInsert 42 s
+
+However, the the following two expressions are not equivalent:
+
+>>> withTimeout $ let s = rInsert 42 s in getR s
+fromList [42]
+>>> withTimeout $ let s () = rInsert 42 (s ()) in getR (s ())
+fromList *** Exception: timed out
+
+It is debatable if that is a problem.
 
 -}
 module Data.Recursive.Examples () where
