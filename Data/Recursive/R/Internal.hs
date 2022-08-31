@@ -57,7 +57,7 @@ mkR x = unsafePerformIO $ do
     t <- doneThunk
     pure (R p t)
 
-newR :: HasPropagator a => (Prop a -> IO [KickedThunk]) -> R a
+newR :: HasPropagator a => (Prop a -> IO [Thunk]) -> R a
 newR act = unsafePerformIO $ do
     p <- newProp
     t <- thunk (act p)
@@ -74,7 +74,7 @@ defR1 :: (HasPropagator a, HasPropagator b) =>
 defR1 def r1 = newR $ \p -> do
     let R p1 t1 = r1
     def p1 p
-    mapM kick [t1]
+    pure [t1]
 
 -- | Defines a value of type @R c@ to be a function of the values of @R a@ and @R b@.
 --
@@ -88,7 +88,7 @@ defR2 def r1 r2 = newR $ \p -> do
     let R p1 t1 = r1
     let R p2 t2 = r2
     def p1 p2 p
-    mapM kick [t1, t2]
+    pure [t1, t2]
 
 -- | Defines a value of type @R b@ to be a function of the values of a list of @R a@ values.
 --
@@ -100,7 +100,7 @@ defRList :: (HasPropagator a, HasPropagator b) =>
     [R a] -> R b
 defRList def rs = newR $ \p -> do
     def [ p' | R p' _ <- rs] p
-    mapM (\(R _ t) -> kick t) rs
+    pure [ t | R _ t <- rs]
 
 -- | Extract the value from a @R a@. This must not be used when _defining_ that value.
 getR :: HasPropagator a => R a -> a

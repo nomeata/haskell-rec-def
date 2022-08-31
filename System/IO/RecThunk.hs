@@ -6,23 +6,19 @@
 The 'Thunk' API provides a way to defer potentially recursive computations:
 
 * 'thunk' is lazy in its argument, and does not run it directly
-* the fist 'kick' triggers execution of the action passed to thunk
-* that action is run at most once
-* 'force' triggers execution of the action passed to thunk, and does not return until
-  *  the action is executed
-  *  the action of any thunk kicked by the action is executed, etc.
-* Cycles are allowed: The action passed to 'thunk' may 'kick' that 'thunk'.
-  Same for larger loops.
+* the first 'force' triggers execution of the action passed to thunk
+* that action is run at most once, and returuns a list of other thunks
+* 'force' forces these thunks as well, and does not return before all of them have executed
+* Cycles are allowed: The action passed to 'thunk' may return a thunk whose action returns the first thunk.
 
 The implementation is hopefully thread safe: Even if multiple threads force or
 kick related thunks, all actions are still run at most once, and all calls to
 force terminate (no deadlock).
 
-
 >>> :set -XRecursiveDo
 >>> :{
-  mdo t1 <- thunk $ putStrLn "Hello" >> mapM kick [t1, t2]
-      t2 <- thunk $ putStrLn "World" >> mapM kick [t1, t2]
+  mdo t1 <- thunk $ putStrLn "Hello" >> pure [t1, t2]
+      t2 <- thunk $ putStrLn "World" >> pure [t1, t2]
       putStrLn "Nothing happened so far, but now:"
       force t1
       putStrLn "No more will happen now:"
@@ -38,10 +34,8 @@ That's it
 -}
 module System.IO.RecThunk
     ( Thunk
-    , KickedThunk
     , thunk
     , doneThunk
-    , kick
     , force
     )
 where
@@ -83,17 +77,21 @@ import Data.IORef
 
 
 -- | An @IO@ action that is to be run at most once
-newtype Thunk_ = Thunk (MVar_ (Either (M [KickedThunk_]) KickedThunk_))
+newtype Thunk_ = Thunk (MVar_ (Either (M [Thunk_]) KickedThunk_))
 data ResolvingState_ = NotStarted | ProcessedBy ThreadId_ (MVar_ ()) | Done
 -- | A 'Thunk' that is being evaluated
 data KickedThunk_ = KickedThunk (MVar_ [KickedThunk_]) (MVar_ ResolvingState_)
 
 -- | Create a new 'Thunk' from an 'IO' action.
 --
--- The 'IO' action may return other thunks that should be forced together whenver this thunk is forced (in arbitrary order)
-thunk :: Ctxt M [KickedThunk_] -> M Thunk_
+-- The 'IO' action may return other thunks that should be forced together
+-- whenver this thunk is forced (in arbitrary order)
+thunk :: Ctxt M [Thunk_] -> M Thunk_
 thunk act = Thunk <$> newMVar (Left act)
 
+-- | A Thunk that that already is done.
+--
+-- Equivalent to @do {t <- thunk (pure []); force t; pure t }@
 doneThunk :: Ctxt M Thunk_
 doneThunk = do
     mv_ts <- newMVar []
@@ -110,7 +108,8 @@ kick (Thunk t) = takeMVar t >>= \case
         let kt = KickedThunk mv_thunks mv_state
         putMVar t (Right kt)
 
-        kts <- act
+        ts <- act
+        kts <- mapM kick ts
         putMVar mv_thunks kts
         pure kt
 
@@ -145,6 +144,9 @@ wait (KickedThunk mv_deps mv_s) = do
             -- Wake up waiting threads
             putMVar done_mv ()
 
+-- | Force the execution of the thunk. If it has been forced already, it will
+-- do nothing. Else it will run the action passed to 'thunk', force thunks
+-- returned by that action, and not return until all of them are forced.
 force :: Ctxt Thunk_ -> M ()
 force t = do
     rt <- kick t

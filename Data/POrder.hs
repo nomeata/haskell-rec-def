@@ -1,4 +1,4 @@
--- | This module provides the 'Order' and related classes
+-- | This module provides the 'POrder' and related classes
 module Data.POrder where
 
 import System.IO.Unsafe

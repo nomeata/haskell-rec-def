@@ -102,7 +102,7 @@ main = defaultMain $ testGroup "tests" $
         t1 <- thunk $ do
             atomicModifyIORef' obs1 (\x -> (succ x, ()))
             t1 <- readIORef t1ref
-            mapM kick [t1]
+            pure [t1]
         writeIORef t1ref t1
         force t1
         readIORef obs1
@@ -113,10 +113,10 @@ main = defaultMain $ testGroup "tests" $
         t1 <- thunk $ do
             atomicModifyIORef' obs1 (\x -> (succ x, ()))
             t2 <- readIORef t2ref
-            mapM kick [t2]
+            pure [t2]
         t2 <- thunk $ do
             atomicModifyIORef' obs1 (\x -> (succ x, ()))
-            mapM kick [t1]
+            pure [t1]
         writeIORef t2ref t2
         mapConcurrently id
             [ force t1 >> mapM readIORef [obs1, obs2]
@@ -129,10 +129,10 @@ main = defaultMain $ testGroup "tests" $
         t1 <- thunk $ do
             atomicModifyIORef' obs1 (\x -> (succ x, ()))
             t2 <- readIORef t2ref
-            mapM kick [t2]
+            pure [t2]
         t2 <- thunk $ do
             atomicModifyIORef' obs1 (\x -> (succ x, ()))
-            mapM kick [t1]
+            pure [t1]
         writeIORef t2ref t2
         mapConcurrently id
             [ force t1 >> mapM readIORef [obs1, obs2]
@@ -148,12 +148,12 @@ main = defaultMain $ testGroup "tests" $
             atomicModifyIORef' obs1 (\x -> (succ x, ()))
             t1 <- readIORef t1ref
             t2 <- readIORef t2ref
-            mapM kick [t2,t1]
+            pure [t2,t1]
         writeIORef t1ref t1
         t2 <- thunk $ do
             atomicModifyIORef' obs1 (\x -> (succ x, ()))
             t2 <- readIORef t2ref
-            mapM kick [t1,t2]
+            pure [t1,t2]
         writeIORef t2ref t2
         mapConcurrently id
             [ force t1 >> mapM readIORef [obs1, obs2]
