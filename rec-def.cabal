@@ -80,7 +80,6 @@ test-suite doctest
     build-depends:    doctest ^>= 0.18.2
     build-depends:    QuickCheck
     build-depends:    template-haskell
-    build-depends:    deepseq
 
 
 test-suite dejafu

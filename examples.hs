@@ -165,10 +165,10 @@ is the same as
 
 However, the the following two expressions are not equivalent:
 
->>> withTimeout $ let s = rInsert 42 s in getR s
-fromList [42]
->>> withTimeout $ let s () = rInsert 42 (s ()) in getR (s ())
-fromList *** Exception: timed out
+>>> withTimeout $ S.toList $ let s = rInsert 42 s in getR s
+[42]
+>>> withTimeout $ S.toList $ let s () = rInsert 42 (s ()) in getR (s ())
+*** Exception: timed out
 
 It is debatable if that is a problem.
 
@@ -180,15 +180,20 @@ import Data.Recursive.Bool
 import qualified Data.Recursive.DualBool as DB
 import Data.Recursive.Set
 import Data.Monoid
-import Control.DeepSeq
 
-import System.Timeout
-import Control.Exception
-import Data.Maybe
-import Data.Map as M
-import qualified Data.Set as S
+-- $setup
+--
+-- >>> import System.Timeout
+-- >>> import Control.Exception
+-- >>> import Data.Maybe
+-- >>> import Data.Map as M
+-- >>> import qualified Data.Set as S
+-- >>>
+-- >>> :{
+-- let withTimeout :: Show a => a -> IO a
+--     withTimeout a =
+--       fromMaybe (errorWithoutStackTrace "timed out") <$>
+--          timeout 100000 (length (show a) `seq` evaluate a)
+-- :}
 
-withTimeout :: NFData a => a -> IO a
-withTimeout a =
-    fromMaybe (errorWithoutStackTrace "timed out") <$>
-        timeout 100000 (evaluate (force a))
+
