@@ -67,6 +67,8 @@ test-suite doctest
     build-depends:    rec-def
     build-depends:    base >= 4.9 && < 5
     build-depends:    doctest ^>= 0.18.2
+    build-depends:    QuickCheck
+    build-depends:    template-haskell
 
 
 test-suite dejafu

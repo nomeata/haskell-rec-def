@@ -5,6 +5,7 @@ module Data.Recursive.Bool
   , module Data.Recursive.Bool
   ) where
 
+
 import Data.Coerce
 import Data.Monoid
 
@@ -12,6 +13,9 @@ import Data.Recursive.R.Internal
 import Data.Recursive.R
 import Data.Recursive.Propagator.P2
 
+-- |
+-- prop> getR rTrue == True
+-- >>> import Test.QuickCheck
 rTrue :: R Bool
 rTrue = r True
 
