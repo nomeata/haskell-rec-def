@@ -180,6 +180,7 @@ import Data.Recursive.Bool
 import qualified Data.Recursive.DualBool as DB
 import Data.Recursive.Set
 import Data.Monoid
+import Control.DeepSeq
 
 import System.Timeout
 import Control.Exception
@@ -187,7 +188,7 @@ import Data.Maybe
 import Data.Map as M
 import qualified Data.Set as S
 
-withTimeout :: a -> IO a
+withTimeout :: NFData a => a -> IO a
 withTimeout a =
     fromMaybe (errorWithoutStackTrace "timed out") <$>
-        timeout 100000 (evaluate a)
+        timeout 100000 (evaluate (force a))
