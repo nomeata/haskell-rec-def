@@ -47,7 +47,7 @@ import System.IO.RecThunk
 -- You can use 'getR' to extract the value.
 --
 -- Do not use the extracted value in the definition of that value, this will
--- loop just like a recursive definition with plan values would. 
+-- loop just like a recursive definition with plain values would.
 data R a = R (Prop a) Thunk
 
 -- | Any value of type @a@ is also a value of type @r a@.
