@@ -1,4 +1,28 @@
 {-# LANGUAGE TypeApplications #-}
+
+{- | The type @R Bool@ is ike 'Bool', but allows recursive definitions:
+
+>>> :{
+  let x = rTrue
+      y = x &&& z
+      z = y ||| rFalse
+  in getR x
+:}
+True
+
+
+This finds the least solution, i.e. prefers 'False' over 'True':
+
+>>> :{
+  let x = x &&& y
+      y = y &&& x
+  in (getR x, getR y)
+:}
+(False,False)
+
+Use @R (Dual Bool)@ from "Data.Recursive.DualBool" if you want the greatest solution.
+
+-}
 module Data.Recursive.Bool
   ( R
   , getR

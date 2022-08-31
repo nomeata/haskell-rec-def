@@ -16,7 +16,25 @@ The 'Thunk' API provides a way to defer potentially recursive computations:
 
 The implementation is hopefully thread safe: Even if multiple threads force or
 kick related thunks, all actions are still run at most once, and all calls to
-force terminate (no deadlock)
+force terminate (no deadlock).
+
+
+>>> :set -XRecursiveDo
+>>> :{
+  mdo t1 <- thunk $ putStrLn "Hello" >> mapM kick [t1, t2]
+      t2 <- thunk $ putStrLn "World" >> mapM kick [t1, t2]
+      putStrLn "Nothing happened so far, but now:"
+      force t1
+      putStrLn "No more will happen now:"
+      force t1
+      putStrLn "That's it"
+:}
+Nothing happened so far, but now:
+Hello
+World
+No more will happen now:
+That's it
+
 -}
 module System.IO.RecThunk
     ( Thunk
@@ -64,10 +82,15 @@ import Data.IORef
 
 
 
+-- | An @IO@ action that is to be run at most once
 newtype Thunk_ = Thunk (MVar_ (Either (M [KickedThunk_]) KickedThunk_))
 data ResolvingState_ = NotStarted | ProcessedBy ThreadId_ (MVar_ ()) | Done
+-- | A 'Thunk' that is being evaluated
 data KickedThunk_ = KickedThunk (MVar_ [KickedThunk_]) (MVar_ ResolvingState_)
 
+-- | Create a new 'Thunk' from an 'IO' action.
+--
+-- The 'IO' action may return other thunks that should be forced together whenver this thunk is forced (in arbitrary order)
 thunk :: Ctxt M [KickedThunk_] -> M Thunk_
 thunk act = Thunk <$> newMVar (Left act)
 

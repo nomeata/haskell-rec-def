@@ -1,4 +1,14 @@
 {-# LANGUAGE TypeFamilies #-}
+{- | The type @R (Dual Bool)@ is ike 'Bool', but allows recursive definitions:
+
+>>> :{
+  let s1 = rInsert 23 s2
+      s2 = rInsert 42 s1
+  in getR s1
+ :}
+fromList [23,42]
+
+-}
 module Data.Recursive.Set
   ( R
   , mkR

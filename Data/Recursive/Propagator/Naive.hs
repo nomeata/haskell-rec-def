@@ -3,8 +3,14 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
--- | A very naive propagator library
+-- | A very naive propagator library.
 --
+-- This propagator implementation keeps updating the values accoring to their
+-- definitions as other values change, until a fixed-point is reached.
+--
+-- It is a naive implementation and not very clever. Much more efficient
+-- propagator implementations are possible, and may be used by this library in
+-- the future.
 module Data.Recursive.Propagator.Naive
     ( Prop
     , newProp
@@ -45,13 +51,14 @@ import Data.IORef
 
 #endif
 
-
+-- | A cell in a propagator network
 data Prop_ a = Prop
     { val :: IORef_ a
     , lock :: MVar_ ()
     , onChange :: IORef_ (M ())
     }
 
+-- | Creates a cell, given an initial value
 newProp :: Ctxt a -> M (Prop_ a)
 newProp x = do
     m <- newIORef x
@@ -59,9 +66,13 @@ newProp x = do
     notify <- newIORef (pure ())
     pure $ Prop m l notify
 
+-- | Reads the current value of the cell
 readProp :: Ctxt Prop_ a -> M a
 readProp (Prop m _ _ ) = readIORef m
 
+-- | Sets a new value calculated from the given action. The action is executed atomically.
+--
+-- If the value has changed, all watchers are notified afterwards (not atomically).
 setProp :: Ctxt Eq a => Prop_ a -> M a -> M ()
 setProp (Prop m l notify) getX = do
     () <- takeMVar l
@@ -71,16 +82,19 @@ setProp (Prop m l notify) getX = do
     putMVar l ()
     unless (new == old) $ join (readIORef notify)
 
+-- | Watch a cell: If the value changes, the given action is executed
 watchProp :: Ctxt Prop_ a -> M () -> M ()
 watchProp (Prop _ _ notify) f =
     atomicModifyIORef notify $ \a -> (f >> a, ())
 
+-- | Whenever the first cell changes, update the second, using the given function
 lift1 :: Ctxt Eq b => (a -> b) -> Prop_ a -> Prop_ b -> M ()
 lift1 f p1 p = do
     let update = setProp p $ f <$> readProp p1
     watchProp p1 update
     update
 
+-- | Whenever any of the first two cells change, update the third, using the given function
 lift2 :: Ctxt Eq c => (a -> b -> c) -> Prop_ a -> Prop_ b -> Prop_ c -> M ()
 lift2 f p1 p2 p = do
     let update = setProp p $ f <$> readProp p1 <*> readProp p2
@@ -88,6 +102,7 @@ lift2 f p1 p2 p = do
     watchProp p2 update
     update
 
+-- | Whenever any of the cells in the list change, update the other, using the given function
 liftList :: Ctxt Eq b => ([a] -> b) -> [Prop_ a] -> Prop_ b -> M ()
 liftList f ps p = do
     let update = setProp p $ f <$> mapM readProp ps

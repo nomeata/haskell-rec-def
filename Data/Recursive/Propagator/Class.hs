@@ -3,6 +3,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
+
+-- | This module provides the 'Propagator' and 'HasPropagator' classes.
 module Data.Recursive.Propagator.Class where
 
 import Data.Monoid (Dual(..))
