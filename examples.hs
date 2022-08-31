@@ -13,7 +13,7 @@ This is unfortunate, isn’t it?
 This library provides data types where this works. You can write the equations
 in that way just fine, and still get a result.
 
-For example, the 'R Bool' type comes with functions that look quite like their
+For example, the @R Bool@ type comes with functions that look quite like their
 ordinary counterparts acting on 'Bool'.
 
 >>> :t rTrue
