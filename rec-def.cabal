@@ -10,13 +10,17 @@ description:
    >     s2 = rInsert 42 s1
    > in getR s1
    .
-   will not loop, but rather  produce the set @fromList [23,42]@
+   will not loop, but rather produces the set @fromList [23,42]@
    .
    See "Data.Recursive.Examples" for more examples, or just browse the modules
    .
    * "Data.Recursive.Bool"
    * "Data.Recursive.Set"
    * "Data.Recursive.DualBool"
+   .
+   More APIs (e.g. for 'Natural') can be added over time, as need and good
+   use-cases arise.
+
    .
    For the (unsafe) building blocks to build such APIs, see
    .
