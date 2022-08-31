@@ -17,18 +17,18 @@ import Data.Recursive.Propagator.P2
 -- $setup
 -- >>> :set -XFlexibleInstances
 -- >>> import Test.QuickCheck
--- >>> instance Arbitrary (R Bool) where arbitrary = r <$> arbitrary
+-- >>> instance Arbitrary (R Bool) where arbitrary = mkR <$> arbitrary
 -- >>> instance Show (R Bool) where show = show . getR
--- >>> instance Arbitrary (R (Dual Bool)) where arbitrary = r <$> arbitrary
+-- >>> instance Arbitrary (R (Dual Bool)) where arbitrary = mkR <$> arbitrary
 -- >>> instance Show (R (Dual Bool)) where show = show . getR
 
 -- | prop> getRDual rTrue == True
 rTrue :: R (Dual Bool)
-rTrue = r (Dual True)
+rTrue = mkR (Dual True)
 
 -- | prop> getRDual rFalse == False
 rFalse :: R (Dual Bool)
-rFalse = r (Dual False)
+rFalse = mkR (Dual False)
 
 -- | prop> getRDual (r1 ||| r2) === (getRDual r1 || getRDual r2)
 (|||) :: R (Dual Bool) -> R (Dual Bool) -> R (Dual Bool)

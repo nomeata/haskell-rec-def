@@ -97,5 +97,5 @@ isTop (P2 p) = readMVar p >>= \case
 -- | A newtype around 'P2' to denote that bottom is 'False' and top is 'True'
 newtype PBool_ = PBool P2_
 
--- | A newtype around 'P2_' to denote that bottom is 'True' and top is 'False'
+-- | A newtype around 'P2' to denote that bottom is 'True' and top is 'False'
 newtype PDualBool_ = PDualBool P2_

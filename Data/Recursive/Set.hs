@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 module Data.Recursive.Set
   ( R
-  , r
+  , mkR
   , getR
   , module Data.Recursive.Set
   ) where
@@ -19,16 +19,12 @@ import Data.Recursive.Propagator.P2
 -- >>> :set -XFlexibleInstances
 -- >>> :set -XScopedTypeVariables
 -- >>> import Test.QuickCheck
--- >>> instance Arbitrary (R Bool) where arbitrary = r <$> arbitrary
--- >>> instance Show (R Bool) where show = show . getR
--- >>> instance Arbitrary (R (Dual Bool)) where arbitrary = r <$> arbitrary
--- >>> instance Show (R (Dual Bool)) where show = show . getR
--- >>> instance (Ord a, Arbitrary a) => Arbitrary (R (S.Set a)) where arbitrary = r <$> arbitrary
+-- >>> instance (Ord a, Arbitrary a) => Arbitrary (R (S.Set a)) where arbitrary = mkR <$> arbitrary
 -- >>> instance (Eq a, Show a) => Show (R (S.Set a)) where show = show . getR
 
 -- | prop> getR rEmpty === S.empty
 rEmpty :: Eq a => R (S.Set a)
-rEmpty = r S.empty
+rEmpty = mkR S.empty
 
 -- | prop> getR (rInsert n r1) === S.insert n (getR r1)
 rInsert :: Ord a => a -> R (S.Set a) -> R (S.Set a)

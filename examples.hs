@@ -95,8 +95,8 @@ This allows us to mix the different types in the same computation:
 We do not have to stop with booleans, and can define similar APIs for other
 data stuctures, e.g. sets:
 
-Again we can describe sets recursively, using the monotone functions 'pEmpty',
-'pInsert' and 'pUnion'
+Again we can describe sets recursively, using the monotone functions 'rEmpty',
+'rInsert' and 'rUnion'
 
 >>> :{
   let s1 = rInsert 23 s2
@@ -108,7 +108,7 @@ fromList [23,42]
 Here is a slightly larger example, where we can can use this API to elegantly
 calculate the reachable nodes in a graph (represented as a map from vertices to
 their successors), using a typical knot-tying approach. But unless with plain
-'Set', it now works even if the graph has cycles:
+'S.Set', it now works even if the graph has cycles:
 
 >>> :{
    reachable :: M.Map Int [Int] -> M.Map Int (S.Set Int)
