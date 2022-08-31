@@ -14,31 +14,46 @@ import Data.Recursive.R.Internal
 import Data.Recursive.R
 import Data.Recursive.Propagator.P2
 
+-- $setup
+-- >>> :set -XFlexibleInstances
+-- >>> import Test.QuickCheck
+-- >>> instance Arbitrary (R Bool) where arbitrary = r <$> arbitrary
+-- >>> instance Show (R Bool) where show = show . getR
+-- >>> instance Arbitrary (R (Dual Bool)) where arbitrary = r <$> arbitrary
+-- >>> instance Show (R (Dual Bool)) where show = show . getR
+
+-- | prop> getRDual rTrue == True
 rTrue :: R (Dual Bool)
 rTrue = r (Dual True)
 
+-- | prop> getRDual rFalse == False
 rFalse :: R (Dual Bool)
 rFalse = r (Dual False)
 
+-- | prop> getRDual (r1 ||| r2) === (getRDual r1 || getRDual r2)
 (|||) :: R (Dual Bool) -> R (Dual Bool) -> R (Dual Bool)
 (|||) = defR2 $ coerce $ \p1 p2 p ->
     whenTop p1 (whenTop p2 (setTop p))
 
+-- | prop> getRDual (r1 &&& r2) === (getRDual r1 && getRDual r2)
 (&&&) :: R (Dual Bool) -> R (Dual Bool) -> R (Dual Bool)
 (&&&) = defR2 $ coerce $ \p1 p2 p -> do
     whenTop p1 (setTop p)
     whenTop p2 (setTop p)
 
+-- | prop> getRDual (ror rs) === or (map getRDual rs)
 ror :: [R (Dual Bool)] -> R (Dual Bool)
 ror = defRList $ coerce go
   where
     go [] p = setTop p
     go (p':ps) p = whenTop p' (go ps p)
 
+-- | prop> getRDual (rand rs) === and (map getRDual rs)
 rand :: [R (Dual Bool)] -> R (Dual Bool)
 rand = defRList $ coerce $ \ps p ->
     mapM_ @[] (`implies` p) ps
 
+-- | prop> getRDual (rnot r1) === not r1
 rnot :: R Bool -> R (Dual Bool)
 rnot = defR1 $ coerce $ \p1 p -> do
     implies p1 p
