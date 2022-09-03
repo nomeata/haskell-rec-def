@@ -99,3 +99,8 @@ test-suite dejafu
     build-depends:    tasty
     build-depends:    tasty-dejafu
     build-depends:    random
+
+source-repository head
+    type:     git
+    location: git://github.com/nomeata/haskell-rec-def
+
