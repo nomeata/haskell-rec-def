@@ -73,7 +73,7 @@ whenTop (P2 p1) act = takeMVar p1 >>= \case
 -- | Set a propagator to top.
 --
 -- If it was bottom before, runs the actions queued with 'whenTop'. It does so
--- _after_ setting the propagator to top, so that cycles are broken.
+-- /after/ setting the propagator to top, so that cycles are broken.
 setTop :: Ctxt P2_ -> M ()
 setTop (P2 p) = takeMVar p >>= \case
     SurelyTop -> putMVar p SurelyTop

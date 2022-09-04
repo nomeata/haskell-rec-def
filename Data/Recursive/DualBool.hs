@@ -2,7 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeApplications #-}
 
-{- | The type @R (Dual Bool)@ is ike 'Bool', but allows recursive definitions:
+{- | The type @R (Dual Bool)@ is like 'Bool', but allows recursive definitions:
 
 >>> :{
   let x = rTrue
