@@ -11,9 +11,9 @@ import Data.Recursive.Propagator.Naive
 import Data.Recursive.Propagator.P2
 import System.IO.RecThunk
 
-t n = testGroup n . pure . testAuto
+t n = testAuto n
 
-tr n = testGroup n . pure . testAutoWay (randomly (mkStdGen 0) 1000) defaultMemType
+tr n = testAutoWay (randomly (mkStdGen 0) 1000) defaultMemType n
 
 main = defaultMain $ testGroup "tests" $
   [ t "prop 1" $ do
