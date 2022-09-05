@@ -97,7 +97,7 @@ test-suite dejafu
     build-depends:    concurrency ^>= 1.11.0.2
     build-depends:    dejafu ^>= 2.4.0.3
     build-depends:    tasty
-    build-depends:    tasty-dejafu
+    build-depends:    tasty-dejafu ^>= 2.1.0.0
     build-depends:    random
 
 source-repository head
