@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeApplications #-}
 
-{- | The type @R Bool@ is ike 'Bool', but allows recursive definitions:
+{- | The type @R Bool@ is like 'Bool', but allows recursive definitions:
 
 >>> :{
   let x = rTrue

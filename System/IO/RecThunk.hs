@@ -7,7 +7,7 @@ The 'Thunk' API provides a way to defer potentially recursive computations:
 
 * 'thunk' is lazy in its argument, and does not run it directly
 * the first 'force' triggers execution of the action passed to thunk
-* that action is run at most once, and returuns a list of other thunks
+* that action is run at most once, and returns a list of other thunks
 * 'force' forces these thunks as well, and does not return before all of them have executed
 * Cycles are allowed: The action passed to 'thunk' may return a thunk whose action returns the first thunk.
 

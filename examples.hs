@@ -62,8 +62,8 @@ only find @True@ if we have to. This is useful, for example, if you check someth
 
 Sometimes you want the other one. Then you can use @R (Dual Bool)@. The module
 "Data.Recursive.DualBool" exports all the functions for that type too. Because
-of the name class we have imported it qualified here. We can run run the same
-quations, and get different answers:
+of the name clash we have imported it qualified here. We can run the same
+equations, and get different answers:
 
 >>> let x = DB.ror [y]; y = DB.rand [x, DB.rFalse] in getRDual x
 False
@@ -114,7 +114,7 @@ Again we can describe sets recursively, using the monotone functions 'rEmpty',
  :}
 fromList [23,42]
 
-Here is a slightly larger example, where we can can use this API to elegantly
+Here is a slightly larger example, where we can use this API to elegantly
 calculate the reachable nodes in a graph (represented as a map from vertices to
 their successors), using a typical knot-tying approach. But unless with plain
 'S.Set', it now works even if the graph has cycles:

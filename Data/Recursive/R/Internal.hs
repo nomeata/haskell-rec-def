@@ -67,7 +67,7 @@ newR act = unsafePerformIO $ do
 --
 -- The action passed it should declare that relation to the underlying propagator.
 --
--- The @Prop a@ propagator must only be used for reading values _from_.
+-- The @Prop a@ propagator must only be used for reading values /from/.
 defR1 :: (HasPropagator a, HasPropagator b) =>
     (Prop a -> Prop b -> IO ()) ->
     R a -> R b
@@ -80,7 +80,7 @@ defR1 def r1 = newR $ \p -> do
 --
 -- The action passed it should declare that relation to the underlying propagator.
 --
--- The @Prop a@ and @Prop b@ propagators must only be used for reading values _from_.
+-- The @Prop a@ and @Prop b@ propagators must only be used for reading values /from/.
 defR2 :: (HasPropagator a, HasPropagator b, HasPropagator c) =>
     (Prop a -> Prop b -> Prop c -> IO ()) ->
     R a -> R b -> R c
@@ -94,7 +94,7 @@ defR2 def r1 r2 = newR $ \p -> do
 --
 -- The action passed it should declare that relation to the underlying propagator.
 --
--- The @Prop a@ propagators must only be used for reading values _from_.
+-- The @Prop a@ propagators must only be used for reading values /from/.
 defRList :: (HasPropagator a, HasPropagator b) =>
     ([Prop a] -> Prop b -> IO ()) ->
     [R a] -> R b
@@ -102,7 +102,7 @@ defRList def rs = newR $ \p -> do
     def [ p' | R p' _ <- rs] p
     pure [ t | R _ t <- rs]
 
--- | Extract the value from a @R a@. This must not be used when _defining_ that value.
+-- | Extract the value from a @R a@. This must not be used when /defining/ that value.
 getR :: HasPropagator a => R a -> a
 getR (R p t) = unsafePerformIO $ do
     force t
