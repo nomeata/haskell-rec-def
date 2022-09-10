@@ -8,23 +8,23 @@
 
 -- |
 --
--- This module provides the 'R' data type, which wraps an imperative propagator (e.g. "Data.Recursive.Propagator.Naive") in a pure and (if done right) safe data structure.
+-- This module provides the 'R' data type, which wraps a imperative propagator
+-- (for example "Data.Recursive.Propagator.Naive") in a pure and (if done right) safe
+-- data structure.
 --
--- The result of 'getR' is always a solution of the given equations, but for it
--- to be deterministic (and hence for this API to be safe), the following
--- should hold:
+-- This module is labeled as Internal because its safety depends on the behaviour of the
+-- underlying propagator implementation. The assumptions is that
 --
--- * The @a@ in @R a@ should be partially orderd ('Data.POrder.POrder')
--- * That partial order must respect equality on @a@
--- * It must have a bottom element 'Data.POrder.bottom' ('Data.POrder.Bottom').
--- * The function passed to 'defR1', 'defR2' etc. must be a monotonic function
---   between these partial orders.
+-- * The defining function passed to `defR1` etc. declare a functional relation
+--   between the input propagators and the output propagator.
+-- * Defining functions do not (observably) affect their input propagators.
+-- * Once all the functions passed to `defR1` of a propagator and its
+--   dependencies have run, `readProp` will return a correct value, i.e. one
+--   that satisfies the functional relations.
+-- * The order in which the defining functions are executed does not affect the
+--   result.
+-- * Termination depends on the termination of the underlying propagator
 --
--- If this does not hold, then the result of 'getR' may not be deterministic.
---
--- Termination depends on whether a soluiton can be found iteratively. This is
--- guaranteed if all partial orders involved satisfy the Ascending Chain Condition.
-
 module Data.Recursive.R.Internal
     ( R
     , getR, getRDual
