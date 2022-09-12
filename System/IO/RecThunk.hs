@@ -46,16 +46,17 @@ where
 
 #ifdef DEJAFU
 
-#define Ctxt   MonadConc m =>
+#define Ctxt   (MonadConc m, MonadIO m) =>
 #define Thunk_  (Thunk m)
 #define ResolvingState_  (ResolvingState m)
 #define KickedThunk_  (KickedThunk m)
-#define ThreadId_  (ThreadId m)
 #define IORef_ IORef m
 #define MVar_  MVar m
 #define M      m
 
 import Control.Concurrent.Classy hiding (wait)
+import Data.Unique
+import Control.Monad.IO.Class
 
 #else
 
@@ -63,7 +64,6 @@ import Control.Concurrent.Classy hiding (wait)
 #define Thunk_  Thunk
 #define ResolvingState_  ResolvingState
 #define KickedThunk_  KickedThunk
-#define ThreadId_  ThreadId
 #define IORef_ IORef
 #define MVar_  MVar
 #define M      IO
@@ -71,14 +71,14 @@ import Control.Concurrent.Classy hiding (wait)
 import Control.Concurrent.MVar
 import Control.Concurrent
 import Data.IORef
+import Data.Unique
+import Control.Monad.IO.Class
 
 #endif
 
-
-
 -- | An @IO@ action that is to be run at most once
 newtype Thunk_ = Thunk (MVar_ (Either (M [Thunk_]) KickedThunk_))
-data ResolvingState_ = NotStarted | ProcessedBy ThreadId_ (MVar_ ()) | Done
+data ResolvingState_ = NotStarted | ProcessedBy Unique (MVar_ ()) | Done
 -- | A 'Thunk' that is being evaluated
 data KickedThunk_ = KickedThunk (MVar_ [KickedThunk_]) (MVar_ ResolvingState_)
 
@@ -118,9 +118,8 @@ kick (Thunk t) = takeMVar t >>= \case
         putMVar t (Right kt)
         pure kt
 
-wait :: Ctxt KickedThunk_ -> M ()
-wait (KickedThunk mv_deps mv_s) = do
-    my_id <- myThreadId
+wait :: Ctxt Unique -> KickedThunk_ -> M ()
+wait my_id (KickedThunk mv_deps mv_s) = do
     s <- takeMVar mv_s
     case s of
         -- Thunk and all dependences are done
@@ -138,7 +137,7 @@ wait (KickedThunk mv_deps mv_s) = do
             done_mv <- newEmptyMVar
             putMVar mv_s (ProcessedBy my_id done_mv)
             ts <- readMVar mv_deps
-            mapM_ wait ts
+            mapM_ (wait my_id) ts
             -- Mark kicked thunk as done
             _ <- swapMVar mv_s Done
             -- Wake up waiting threads
@@ -150,4 +149,5 @@ wait (KickedThunk mv_deps mv_s) = do
 force :: Ctxt Thunk_ -> M ()
 force t = do
     rt <- kick t
-    wait rt
+    my_id <- liftIO newUnique
+    wait my_id rt
