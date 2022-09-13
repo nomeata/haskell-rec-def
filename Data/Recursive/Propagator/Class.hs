@@ -24,8 +24,8 @@ class Propagator p x | p -> x where
     readProp :: p -> IO x
 
 instance Bottom x => Propagator (Naive.Prop x) x where
-    newProp = Naive.newProp bottom
-    newConstProp = Naive.newProp
+    newProp = Naive.newProp
+    newConstProp = Naive.newConstProp
     readProp = Naive.readProp
 
 instance Propagator PBool Bool where
