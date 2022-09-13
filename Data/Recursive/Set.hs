@@ -1,5 +1,5 @@
 {-# LANGUAGE TypeFamilies #-}
-{- | The type @R (Set a)@ is like 'Set' @a@, but allows recursive definitions:
+{- | The type @R (Set a)@ is like 'S.Set' @a@, but allows recursive definitions:
 
 >>> :{
   let s1 = rInsert 23 s2
