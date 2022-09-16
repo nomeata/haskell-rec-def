@@ -21,9 +21,9 @@ instance Eq a => POrder (FastSet a)
 instance Eq a => Bottom (FastSet a) where bottom = FastSet empty
 
 instance Ord a => ChangeAction (S.Set a) (FastSet a) where
-  update dx (FastSet x) = FastSet (union dx x)
-  diff (FastSet x) (FastSet y) = difference x y
-  noop dx (FastSet x) = isSubsetOf dx x
+  update = coerce union
+  diff = coerce difference
+  noop = coerce isSubsetOf
 
 instance Ord a => Change (FastSet a) where type Delta (FastSet a) = Set a
 
