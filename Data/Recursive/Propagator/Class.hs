@@ -14,6 +14,7 @@ import Data.Coerce
 import qualified Data.Recursive.Propagator.Naive as Naive
 import Data.Recursive.Propagator.P2
 import Data.POrder
+import qualified Data.Recursive.Propagator.Seminaive as Seminaive
 
 -- | The Propagator class defines some functions shared by different propagator
 -- implementations. This backs the generic "Data.Recursive.R.Internal" wrapper.
@@ -27,6 +28,11 @@ instance Bottom x => Propagator (Naive.Prop x) x where
     newProp = Naive.newProp bottom
     newConstProp = Naive.newProp
     readProp = Naive.readProp
+
+instance (Bottom a, Seminaive.Change a) => Propagator (Seminaive.Prop a) a where
+    newProp = Seminaive.newProp bottom
+    newConstProp = Seminaive.newProp
+    readProp = Seminaive.readProp
 
 instance Propagator PBool Bool where
     newProp = coerce newP2

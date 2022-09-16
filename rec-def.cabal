@@ -63,6 +63,8 @@ library
     exposed-modules: Data.Recursive.Propagator.Naive
     exposed-modules: Data.Recursive.Propagator.Class
     exposed-modules: Data.Recursive.Propagator.P2
+    exposed-modules: Data.Recursive.Propagator.Seminaive
+    exposed-modules: Data.Recursive.FastSet
 
     build-depends:    base >= 4.9 && < 5
     build-depends:    containers >= 0.5.11 && < 0.7
