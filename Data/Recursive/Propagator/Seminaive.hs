@@ -34,9 +34,6 @@ newProp x = do
   notify <- newIORef []
   pure $ Prop cell lock notify
 
--- readProp :: Prop a -> IO a
--- readProp (Prop m _ _) = readIORef m
-
 modifyProp :: Change a => Prop a -> (a -> Delta a) -> IO ()
 modifyProp (Prop cell lock notify) func = do
   () <- takeMVar lock
