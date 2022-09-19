@@ -16,8 +16,7 @@ import Data.Coerce
 import Data.Monoid
 import Control.Monad
 
-import Data.Recursive.Set.Internal
-import Data.Recursive.Bool.Internal
+import Data.Recursive.Internal
 import qualified Data.Propagator.Purify as Purify
 import Data.Propagator.Naive
 import Data.Propagator.P2

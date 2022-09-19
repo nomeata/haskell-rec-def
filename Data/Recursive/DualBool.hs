@@ -28,7 +28,7 @@ module Data.Recursive.DualBool (RDualBool, module Data.Recursive.DualBool) where
 import Data.Coerce
 import Data.Monoid
 
-import Data.Recursive.Bool.Internal
+import Data.Recursive.Internal
 import qualified Data.Propagator.Purify as Purify
 import Data.Propagator.P2
 
