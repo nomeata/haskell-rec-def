@@ -7,8 +7,8 @@ import Control.Monad
 import Test.Tasty
 import Test.Tasty.DejaFu
 
-import Data.Recursive.Propagator.Naive
-import Data.Recursive.Propagator.P2
+import Data.Propagator.Naive
+import Data.Propagator.P2
 import System.IO.RecThunk
 
 t n = testAuto n

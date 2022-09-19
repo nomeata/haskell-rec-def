@@ -1,90 +1,105 @@
 {-# LANGUAGE TypeFamilies #-}
-{- | The type @R (Set a)@ is like 'S.Set' @a@, but allows recursive definitions:
+{- | The type @RS.RSet a@ is like 'S.Set' @a@, but allows recursive definitions:
 
 >>> :{
-  let s1 = rInsert 23 s2
-      s2 = rInsert 42 s1
-  in getR s1
+  let s1 = RS.insert 23 s2
+      s2 = RS.insert 42 s1
+  in RS.get s1
  :}
 fromList [23,42]
 
 -}
-module Data.Recursive.Set
-  ( R
-  , mkR
-  , getR
-  , module Data.Recursive.Set
-  ) where
+module Data.Recursive.Set (RSet, module Data.Recursive.Set) where
 
 import qualified Data.Set as S
 import Data.Coerce
 import Data.Monoid
 import Control.Monad
 
-import Data.Recursive.R.Internal
-import Data.Recursive.Propagator.Naive
-import Data.Recursive.Propagator.P2
+import Data.Recursive.Set.Internal
+import Data.Recursive.Bool.Internal
+import qualified Data.Propagator.Purify as Purify
+import Data.Propagator.Naive
+import Data.Propagator.P2
 
 -- $setup
+-- >>> :load Data.Recursive.Set Data.Recursive.Bool Data.Recursive.DualBool
+-- >>> :module - Data.Recursive.Set Data.Recursive.Bool Data.Recursive.DualBool
+-- >>> import qualified Data.Recursive.Set as RS
+-- >>> import qualified Data.Recursive.Bool as RB
+-- >>> import qualified Data.Recursive.DualBool as RDB
+-- >>> import qualified Data.Set as S
 -- >>> :set -XFlexibleInstances
 -- >>> :set -XScopedTypeVariables
 -- >>> import Test.QuickCheck
--- >>> instance (Ord a, Arbitrary a) => Arbitrary (R (S.Set a)) where arbitrary = mkR <$> arbitrary
--- >>> instance (Eq a, Show a) => Show (R (S.Set a)) where show = show . getR
+-- >>> instance (Ord a, Arbitrary a) => Arbitrary (RS.RSet a) where arbitrary = RS.mk <$> arbitrary
+-- >>> instance (Ord a, Show a) => Show (RS.RSet a) where show = show . RS.get
 
--- | prop> getR rEmpty === S.empty
-rEmpty :: Eq a => R (S.Set a)
-rEmpty = mkR S.empty
+-- | Extracts the value of a 'RSet a'
+get :: Ord a => RSet a -> S.Set a
+get (RSet p) = Purify.get p
 
--- | prop> getR (rInsert n r1) === S.insert n (getR r1)
-rInsert :: Ord a => a -> R (S.Set a) -> R (S.Set a)
-rInsert x = defR1 $ lift1 $ S.insert x
+-- | prop> RB.get (RB.mk s) === s
+mk :: Ord a => S.Set a -> RSet a
+mk s = RSet $ Purify.mk s
 
--- | prop> getR (rDelete n r1) === S.delete n (getR r1)
-rDelete :: Ord a => a -> R (S.Set a) -> R (S.Set a)
-rDelete x = defR1 $ lift1 $ S.delete x
+-- | prop> RS.get RS.empty === S.empty
+empty :: Eq a => RSet a
+empty = RSet $ Purify.mk S.empty
 
--- | prop> \(Fun _ p) -> getR (rFilter p r1) === S.filter p (getR r1)
-rFilter :: Ord a => (a -> Bool) -> R (S.Set a) -> R (S.Set a)
-rFilter f = defR1 $ lift1 $ S.filter f
+-- | prop> RS.get (RS.singleton x) === S.singleton x
+singleton :: Eq a => a -> RSet a
+singleton x = RSet $ Purify.mk $ S.singleton x
 
--- | prop> getR (rUnion r1 r2) === S.union (getR r1) (getR r2)
-rUnion :: Ord a => R (S.Set a) -> R (S.Set a) -> R (S.Set a)
-rUnion = defR2 $ lift2 S.union
+-- | prop> RS.get (RS.insert n r1) === S.insert n (RS.get r1)
+insert :: Ord a => a -> RSet a -> RSet a
+insert x = coerce $ Purify.def1 $ lift1 $ S.insert x
 
--- | prop> getR (rUnions rs) === S.unions (map getR rs)
-rUnions :: Ord a => [R (S.Set a)] -> R (S.Set a)
-rUnions = defRList $ liftList S.unions
+-- | prop> RS.get (RS.delete n r1) === S.delete n (RS.get r1)
+delete :: Ord a => a -> RSet a -> RSet a
+delete x = coerce $ Purify.def1 $ lift1 $ S.delete x
 
--- | prop> getR (rIntersection r1 r2) === S.intersection (getR r1) (getR r2)
-rIntersection :: Ord a => R (S.Set a) -> R (S.Set a) -> R (S.Set a)
-rIntersection = defR2 $ lift2 S.intersection
+-- | prop> \(Fun _ p) -> RS.get (RS.filter p r1) === S.filter p (RS.get r1)
+filter :: Ord a => (a -> Bool) -> RSet a -> RSet a
+filter f = coerce $ Purify.def1 $ lift1 $ S.filter f
 
--- | prop> getR (rMember n r1) === S.member n (getR r1)
-rMember :: Ord a => a -> R (S.Set a) -> R Bool
-rMember x = defR1 $ \ps pb -> do
+-- | prop> RS.get (RS.union r1 r2) === S.union (RS.get r1) (RS.get r2)
+union :: Ord a => RSet a -> RSet a -> RSet a
+union = coerce $ Purify.def2 $ lift2 S.union
+
+-- | prop> RS.get (RS.unions rs) === S.unions (map RS.get rs)
+unions :: Ord a => [RSet a] -> RSet a
+unions = coerce $ Purify.defList $ liftList S.unions
+
+-- | prop> RS.get (RS.intersection r1 r2) === S.intersection (RS.get r1) (RS.get r2)
+intersection :: Ord a => RSet a -> RSet a -> RSet a
+intersection = coerce $ Purify.def2 $ lift2 S.intersection
+
+-- | prop> RB.get (RS.member n r1) === S.member n (RS.get r1)
+member :: Ord a => a -> RSet a -> RBool
+member x = coerce $ Purify.def1 $ \ps pb -> do
     let update = do
             s <- readProp ps
-            when (S.member x s) $ coerce setTop pb
+            when (S.member x s) $ setTop pb
     watchProp ps update
     update
 
--- | prop> getRDual (rNotMember n r1) === S.notMember n (getR r1)
-rNotMember :: Ord a => a -> R (S.Set a) -> R (Dual Bool)
-rNotMember x = defR1 $ \ps pb -> do
+-- | prop> RDB.get (RS.notMember n r1) === S.notMember n (RS.get r1)
+notMember :: Ord a => a -> RSet a -> RDualBool
+notMember x = coerce $ Purify.def1 $ \ps pb -> do
     let update = do
             s <- readProp ps
-            when (S.member x s) $ coerce setTop pb
+            when (S.member x s) $ setTop pb
     watchProp ps update
     update
 
--- | prop> getRDual (rDisjoint r1 r2) === S.disjoint (getR r1) (getR r2)
-rDisjoint :: Ord a => R (S.Set a) -> R (S.Set a) -> R (Dual Bool)
-rDisjoint = defR2 $ \ps1 ps2 (PDualBool pb) -> do
+-- | prop> RDB.get (RS.disjoint r1 r2) === S.disjoint (RS.get r1) (RS.get r2)
+disjoint :: Ord a => RSet a -> RSet a -> RDualBool
+disjoint = coerce $ Purify.def2 $ \ps1 ps2 pb -> do
     let update = do
             s1 <- readProp ps1
             s2 <- readProp ps2
-            unless (S.disjoint s1 s2) $ coerce setTop pb
+            unless (S.disjoint s1 s2) $ setTop pb
     watchProp ps1 update
     watchProp ps2 update
     update

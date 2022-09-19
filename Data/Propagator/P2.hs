@@ -1,9 +1,10 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE CPP #-}
 
 -- | A propagator for the two-point lattice
 --
-module Data.Recursive.Propagator.P2
+module Data.Propagator.P2
     ( P2
     , newP2
     , newTopP2
@@ -11,10 +12,10 @@ module Data.Recursive.Propagator.P2
     , whenTop
     , implies
     , isTop
-    , PBool(..)
-    , PDualBool(..)
     )
     where
+
+import Data.Propagator.Class
 
 -- I want to test this code with dejafu, without carrying it as a dependency
 -- of the main library. So here is a bit of CPP to care for that.
@@ -94,8 +95,10 @@ isTop (P2 p) = readMVar p >>= \case
     SurelyTop -> pure True
     StillBottom _ -> pure False
 
--- | A newtype around 'P2' to denote that bottom is 'False' and top is 'True'
-newtype PBool_ = PBool P2_
-
--- | A newtype around 'P2' to denote that bottom is 'True' and top is 'False'
-newtype PDualBool_ = PDualBool P2_
+#ifndef DEJAFU
+instance Propagator P2_ Bool where
+    newProp = newP2
+    newConstProp False = newP2
+    newConstProp True = newTopP2
+    readProp = isTop
+#endif

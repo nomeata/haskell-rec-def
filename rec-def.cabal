@@ -6,9 +6,9 @@ description:
    This library provides safe APIs that allow you to define and calculate
    values recursively, and still get a result out:
    .
-   > let s1 = rInsert 23 s2
-   >     s2 = rInsert 42 s1
-   > in getR s1
+   > let s1 = RS.insert 23 s2
+   >     s2 = RS.insert 42 s1
+   > in RS.get s1
    .
    will not loop, but rather produces the set @fromList [23,42]@
    .
@@ -18,16 +18,16 @@ description:
    * "Data.Recursive.Set"
    * "Data.Recursive.DualBool"
    .
-   More APIs (e.g. for 'Natural') can be added over time, as need and good
+   More APIs (e.g. for maps or 'Natural') can be added over time, as need and good
    use-cases arise.
 
    .
    For the (unsafe) building blocks to build such APIs, see
    .
-   * "Data.Recursive.R.Internal" for the wrapper that turns an IO-implemented
+   * "Data.Propagator.Purify" for the wrapper that turns an IO-implemented
      propagator into a pure data structure
-   * "Data.Recursive.Propagator.Naive" for a naive propagator implementation
-   * "Data.Recursive.Propagator.P2" for a smarter propagator implementation for
+   * "Data.Propagator.Naive" for a naive propagator implementation
+   * "Data.Propagator.P2" for a smarter propagator implementation for
      the two-point lattice, i.e. 'Bool'
    .
    The library is not (yet) focussed on performance, and uses a rather naive
@@ -54,15 +54,16 @@ tested-with: GHC==9.2.1, GHC==9.0.2, GHC==8.10.7, GHC==8.8.4, GHC==8.6.5, GHC==8
 library
     exposed-modules: Data.Recursive.Examples
     exposed-modules: Data.Recursive.Bool
+    exposed-modules: Data.Recursive.Bool.Internal
     exposed-modules: Data.Recursive.DualBool
     exposed-modules: Data.Recursive.Set
+    exposed-modules: Data.Recursive.Set.Internal
     exposed-modules: Data.POrder
     exposed-modules: System.IO.RecThunk
-    exposed-modules: Data.Recursive.R
-    exposed-modules: Data.Recursive.R.Internal
-    exposed-modules: Data.Recursive.Propagator.Naive
-    exposed-modules: Data.Recursive.Propagator.Class
-    exposed-modules: Data.Recursive.Propagator.P2
+    exposed-modules: Data.Propagator.Purify
+    exposed-modules: Data.Propagator.Naive
+    exposed-modules: Data.Propagator.Class
+    exposed-modules: Data.Propagator.P2
 
     build-depends:    base >= 4.9 && < 5
     build-depends:    containers >= 0.5.11 && < 0.7
@@ -85,8 +86,10 @@ test-suite doctest
 test-suite dejafu
     type:             exitcode-stdio-1.0
     other-modules:    System.IO.RecThunk
-    other-modules:    Data.Recursive.Propagator.Naive
-    other-modules:    Data.Recursive.Propagator.P2
+    other-modules:    Data.POrder
+    other-modules:    Data.Propagator.Class
+    other-modules:    Data.Propagator.Naive
+    other-modules:    Data.Propagator.P2
     main-is:          dejafu.hs
     default-language: Haskell2010
     ghc-options:      -threaded

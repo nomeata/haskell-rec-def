@@ -2,6 +2,8 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 -- | A very naive propagator library.
 --
@@ -11,7 +13,7 @@
 -- It is a naive implementation and not very clever. Much more efficient
 -- propagator implementations are possible, and may be used by this library in
 -- the future.
-module Data.Recursive.Propagator.Naive
+module Data.Propagator.Naive
     ( Prop
     , newProp
     , newConstProp
@@ -26,6 +28,8 @@ module Data.Recursive.Propagator.Naive
 
 import Control.Monad
 import Data.POrder
+
+import qualified Data.Propagator.Class as Class
 
 -- I want to test this code with dejafu, without carrying it as a dependency
 -- of the main library. So here is a bit of CPP to care for that.
@@ -114,3 +118,10 @@ liftList f ps p = do
     let update = setProp p $ f <$> mapM readProp ps
     mapM_ (\p' -> watchProp p' update) ps
     update
+
+#ifndef DEJAFU
+instance Bottom a => Class.Propagator (Prop_ a) a where
+    newProp = newProp
+    newConstProp = newConstProp
+    readProp = readProp
+#endif

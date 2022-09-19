@@ -1,7 +1,7 @@
 with import <nixpkgs> {};
 
 let
-  myGhc = ghc.withPackages(p : with p; [doctest deepseq QuickCheck]);
+  myGhc = ghc.withPackages(p : with p; [doctest deepseq ghc-heap-view QuickCheck]);
 in stdenv.mkDerivation rec {
   name = "env";
   buildInputs = [ myGhc ghcid ];

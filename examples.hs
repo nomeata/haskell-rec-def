@@ -18,37 +18,40 @@ This is unfortunate, isn’t it?
 This library provides data types where this works. You can write the equations
 in that way just fine, and still get a result.
 
-For example, the @R Bool@ type comes with functions that look quite like their
+For example, the 'Data.Recursive.Bool.RBool' type comes with functions that look quite like their
 ordinary counterparts acting on 'Bool'.
 
->>> :t rTrue
-rTrue :: R Bool
->>> :t rFalse
-rFalse :: R Bool
->>> :t (|||)
-(|||) :: R Bool -> R Bool -> R Bool
->>> :t (&&&)
-(&&&) :: R Bool -> R Bool -> R Bool
->>> getR rTrue
+>>> import Data.Recursive.Bool (RBool)
+>>> import qualified Data.Recursive.Bool as RB
+
+>>> :t RB.true
+RB.true :: RBool
+>>> :t RB.false
+RB.false :: RBool
+>>> :t (RB.||)
+(RB.||) :: RBool -> RBool -> RBool
+>>> :t (RB.&&)
+(RB.&&) :: RBool -> RBool -> RBool
+>>> RB.get RB.true
 True
->>> getR rFalse
+>>> RB.get RB.false
 False
->>> getR (rFalse &&& rTrue)
+>>> RB.get (RB.false RB.&& RB.true)
 False
->>> getR (rTrue &&& rTrue)
+>>> RB.get (RB.true RB.&& RB.true)
 True
->>> getR (ror [rTrue,  rFalse, rTrue])
+>>> RB.get (RB.or [RB.true,  RB.false, RB.true])
 True
 
 So far so good, lets see what happens when we try something recursive:
 
->>> let x = ror [y]; y = rand [x, rFalse] in getR x
+>>> let x = RB.or [y]; y = RB.and [x, RB.false] in RB.get x
 False
->>> let x = ror [y]; y = ror [x, rFalse] in getR x
+>>> let x = RB.or [y]; y = RB.or [x, RB.false] in RB.get x
 False
->>> let x = ror [y]; y = ror [x, rTrue] in getR x
+>>> let x = RB.or [y]; y = RB.or [x, RB.true] in RB.get x
 True
->>> let x = ror [y]; y = ror [x] in getR x
+>>> let x = RB.or [y]; y = RB.or [x] in RB.get x
 False
 
 == Least or greatest solution
@@ -60,42 +63,45 @@ both to @True@ and both to @False@.
 We (arbitrary) choose to find the least solution, i.e. prefer @False@ and
 only find @True@ if we have to. This is useful, for example, if you check something recursive for errors.
 
-Sometimes you want the other one. Then you can use @R (Dual Bool)@. The module
-"Data.Recursive.DualBool" exports all the functions for that type too. Because
-of the name clash we have imported it qualified here. We can run the same
-equations, and get different answers:
+Sometimes you want the other one. Then you can use @RDualBool@. The module
+"Data.Recursive.DualBool" exports all the functions for that type too. We can
+run the same equations, and get different answers:
 
->>> let x = DB.ror [y]; y = DB.rand [x, DB.rFalse] in getRDual x
+>>> import Data.Recursive.DualBool (RDualBool)
+>>> import qualified Data.Recursive.DualBool as RDB
+
+
+>>> let x = RDB.or [y]; y = RDB.and [x, RDB.false] in RDB.get x
 False
->>> let x = DB.ror [y]; y = DB.ror [x, DB.rFalse] in getRDual x
+>>> let x = RDB.or [y]; y = RDB.or [x, RDB.false] in RDB.get x
 True
->>> let x = DB.ror [y]; y = DB.ror [x, DB.rTrue] in getRDual x
+>>> let x = RDB.or [y]; y = RDB.or [x, RDB.true] in RDB.get x
 True
->>> let x = DB.ror [y]; y = DB.ror [x] in getRDual x
+>>> let x = RDB.or [y]; y = RDB.or [x] in RDB.get x
 True
 
 The negation function is also available, and goes from can-be-true to must-be-true and back:
 
->>> :t rnot
-rnot :: R (Dual Bool) -> R Bool
->>> :t DB.rnot
-DB.rnot :: R Bool -> R (Dual Bool)
+>>> :t RB.not
+RB.not :: RDualBool -> RBool
+>>> :t RDB.not
+RDB.not :: RBool -> RDualBool
 
 This allows us to mix the different types in the same computation:
 
 >>> :{
-  let x = rnot y ||| rnot z
-      y = DB.rnot x DB.&&& z
-      z = DB.rTrue
-  in (getR x, getRDual y, getRDual z)
+  let x = RB.not y RB.|| RB.not z
+      y = RDB.not x RDB.&& z
+      z = RDB.true
+  in (RB.get x, RDB.get y, RDB.get z)
  :}
 (False,True,True)
 
 >>> :{
-  let x = rnot y ||| rnot z
-      y = DB.rnot x DB.&&& z
-      z = DB.rFalse
-  in (getR x, getRDual y, getRDual z)
+  let x = RB.not y RB.|| RB.not z
+      y = RDB.not x RDB.&& z
+      z = RDB.false
+  in (RB.get x, RDB.get y, RDB.get z)
  :}
 (True,False,False)
 
@@ -104,13 +110,15 @@ This allows us to mix the different types in the same computation:
 We do not have to stop with booleans, and can define similar APIs for other
 data stuctures, e.g. sets:
 
-Again we can describe sets recursively, using the monotone functions 'rEmpty',
-'rInsert' and 'rUnion'
+>>> import qualified Data.Recursive.Set as RS
+
+Again we can describe sets recursively, using the monotone functions 'RS.empty',
+'RS.insert' and 'RS.union'
 
 >>> :{
-  let s1 = rInsert 23 s2
-      s2 = rInsert 42 s1
-  in getR s1
+  let s1 = RS.insert 23 s2
+      s2 = RS.insert 42 s1
+  in RS.get s1
  :}
 fromList [23,42]
 
@@ -121,10 +129,10 @@ their successors), using a typical knot-tying approach. But unless with plain
 
 >>> :{
    reachable :: M.Map Int [Int] -> M.Map Int (S.Set Int)
-   reachable g = fmap getR sets
+   reachable g = fmap RS.get sets
      where
-       sets :: M.Map Int (R (S.Set Int))
-       sets = M.mapWithKey (\v vs -> rInsert v (rUnions [ sets ! v' | v' <- vs ])) g
+       sets :: M.Map Int (RS.RSet Int)
+       sets = M.mapWithKey (\v vs -> RS.insert v (RS.unions [ sets ! v' | v' <- vs ])) g
  :}
 
 >>> let graph = M.fromList [(1,[2,3]),(2,[1]),(3,[])]
@@ -137,37 +145,37 @@ fromList [3]
 
 Of course, the magic stops somewhere: Just like with the usual knot-tying
 tricks, you still have to make sure to be lazy enough. In particular, you should
-not peek at the value (e.g. using 'getR') while you are building the graph:
+not peek at the value (e.g. using 'RB.get') while you are building the graph:
 
 >>> :{
     withTimeout $
-      let x = rand [x, if getR y then z else rTrue]
-          y = rand [x, rTrue]
-          z = rFalse
-      in getR y
+      let x = RB.and [x, if RB.get y then z else RB.true]
+          y = RB.and [x, RB.true]
+          z = RB.false
+      in RB.get y
     :}
 *** Exception: timed out
 
 Similarly, you have to make sure you recurse through one of these functions; @let x = x@ still does not work:
 
->>> withTimeout $ let x = x :: R Bool in getR x
+>>> withTimeout $ let x = x :: RBool in RB.get x
 *** Exception: timed out
->>> withTimeout $ let x = x &&& x in getR x
+>>> withTimeout $ let x = x RB.&& x in RB.get x
 False
 
 We belive that the APIs provided here are still “pure”: evaluation order does not affect the results, and you can replace equals with equals, in the sense that
 
-> let s = rInsert 42 s in s
+> let s = RS.insert 42 s in s
 
 is the same as
 
-> let s = rInsert 42 s in rInsert 42 s
+> let s = RS.insert 42 s in RS.insert 42 s
 
 However, the the following two expressions are not equivalent:
 
->>> withTimeout $ S.toList $ let s = rInsert 42 s in getR s
+>>> withTimeout $ S.toList $ let s = RS.insert 42 s in RS.get s
 [42]
->>> withTimeout $ S.toList $ let s () = rInsert 42 (s ()) in getR (s ())
+>>> withTimeout $ S.toList $ let s () = RS.insert 42 (s ()) in RS.get (s ())
 *** Exception: timed out
 
 It is debatable if that is a problem.
@@ -175,11 +183,11 @@ It is debatable if that is a problem.
 -}
 module Data.Recursive.Examples () where
 
-import Data.Recursive.R
-import Data.Recursive.Bool
-import qualified Data.Recursive.DualBool as DB
-import Data.Recursive.Set
-import Data.Monoid
+-- Imports for haddock
+
+import qualified Data.Recursive.Bool as RB
+import qualified Data.Recursive.DualBool as RDB
+import qualified Data.Recursive.Set as RS
 
 -- $setup
 --
