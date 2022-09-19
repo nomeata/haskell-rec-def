@@ -24,5 +24,5 @@ newtype RBool = RBool (Purify.Purify P2)
 -- | Like 'Bool', but admits recursive definitions, preferring the greatest solution.
 newtype RDualBool = RDualBool (Purify.Purify P2)
 
--- | Like 'S.Set' @a@, but admits recursive definitions.
+-- | Like 'S.Set', but admits recursive definitions.
 newtype RSet a = RSet (Purify.Purify (Prop (S.Set a)))

@@ -25,11 +25,11 @@ class POrder a where
     -- compare sizes. It is always ok to use '(==)' here.
     eqOfLe :: a -> a -> Bool
 
--- | A class indicating that the type @a@ is partially ordered and has a bottom
+-- | A class indicating that the type @a@ is has a bottom
 -- element.
-class POrder a => Bottom a where bottom :: a
+class Bottom a where bottom :: a
 
--- | A class indicating that the type @a@ is partially ordered and has a top
+-- | A class indicating that the type @a@ is has a top
 -- element.
 class POrder a => Top a where top :: a
 
@@ -55,7 +55,7 @@ instance Top Bool where top = True
 instance POrder (S.Set a) where eqOfLe = (==) `on` S.size
 
 -- | Bottom is 'S.empty'
-instance Eq a => Bottom (S.Set a) where bottom = S.empty
+instance Bottom (S.Set a) where bottom = S.empty
 
 -- | Ordered by '(<=)f'
 instance POrder Natural where eqOfLe = (==)

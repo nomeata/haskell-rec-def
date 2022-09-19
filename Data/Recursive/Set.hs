@@ -35,15 +35,15 @@ import Data.Propagator.P2
 -- >>> instance (Ord a, Show a) => Show (RS.RSet a) where show = show . RS.get
 
 -- | Extracts the value of a 'RSet a'
-get :: Ord a => RSet a -> S.Set a
+get :: RSet a -> S.Set a
 get (RSet p) = Purify.get p
 
 -- | prop> RB.get (RB.mk s) === s
-mk :: Ord a => S.Set a -> RSet a
+mk :: S.Set a -> RSet a
 mk s = RSet $ Purify.mk s
 
 -- | prop> RS.get RS.empty === S.empty
-empty :: Eq a => RSet a
+empty :: RSet a
 empty = RSet $ Purify.mk S.empty
 
 -- | prop> RS.get (RS.singleton x) === S.singleton x
