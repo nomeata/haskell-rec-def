@@ -6,7 +6,6 @@ import Control.Monad.ST
 import Data.Monoid
 import Data.Coerce
 import qualified Data.Set as S
-import qualified Data.Map as M
 import Numeric.Natural
 import Data.Function
 
@@ -57,12 +56,6 @@ instance POrder (S.Set a) where eqOfLe = (==) `on` S.size
 
 -- | Bottom is 'S.empty'
 instance Eq a => Bottom (S.Set a) where bottom = S.empty
-
--- | Ordered by 'M.isSubmapOf'
-instance POrder (M.Map a b) where eqOfLe = (==) `on` M.size
-
--- | Bottom is 'S.empty'
-instance Eq a => Bottom (M.Map a b) where bottom = M.empty
 
 -- | Ordered by '(<=)f'
 instance POrder Natural where eqOfLe = (==)
