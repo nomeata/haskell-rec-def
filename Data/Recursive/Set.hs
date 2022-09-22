@@ -47,7 +47,7 @@ empty :: RSet a
 empty = RSet $ Purify.mk S.empty
 
 -- | prop> RS.get (RS.singleton x) === S.singleton x
-singleton :: Eq a => a -> RSet a
+singleton :: a -> RSet a
 singleton x = RSet $ Purify.mk $ S.singleton x
 
 -- | prop> RS.get (RS.insert n r1) === S.insert n (RS.get r1)
@@ -92,6 +92,15 @@ notMember x = coerce $ Purify.def1 $ \ps pb -> do
     watchProp ps update
     update
 
+-- | prop> RDB.get (RS.null s) === S.null (RS.get s)
+null :: RSet a -> RDualBool
+null = coerce $ Purify.def1 $ \ps pb -> do
+    let update = do
+            s <- readProp ps
+            unless (S.null s) $ setTop pb
+    watchProp ps update
+    update
+
 -- | prop> RDB.get (RS.disjoint r1 r2) === S.disjoint (RS.get r1) (RS.get r2)
 disjoint :: Ord a => RSet a -> RSet a -> RDualBool
 disjoint = coerce $ Purify.def2 $ \ps1 ps2 pb -> do
@@ -102,3 +111,18 @@ disjoint = coerce $ Purify.def2 $ \ps1 ps2 pb -> do
     watchProp ps1 update
     watchProp ps2 update
     update
+
+-- | The identity function. This is useful when tying the knot, to avoid a loop that bottoms out:
+--
+-- > let x = x in RS.get x
+--
+-- will not work, but
+--
+-- >>> let x = RS.id x in RS.get x
+-- fromList []
+--
+-- does.
+--
+-- | prop> RS.get (RS.id s) === RS.get s
+id :: RSet a -> RSet a
+id = coerce $ Purify.def1 $ lift1 (Prelude.id :: S.Set a -> S.Set a)

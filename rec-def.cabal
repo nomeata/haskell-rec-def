@@ -16,6 +16,7 @@ description:
    .
    * "Data.Recursive.Bool"
    * "Data.Recursive.Set"
+   * "Data.Recursive.Map"
    * "Data.Recursive.DualBool"
    .
    More APIs (e.g. for maps or 'Natural') can be added over time, as need and good
@@ -56,6 +57,7 @@ library
     exposed-modules: Data.Recursive.Bool
     exposed-modules: Data.Recursive.DualBool
     exposed-modules: Data.Recursive.Set
+    exposed-modules: Data.Recursive.Map
     exposed-modules: Data.Recursive.Internal
     exposed-modules: Data.POrder
     exposed-modules: System.IO.RecThunk
