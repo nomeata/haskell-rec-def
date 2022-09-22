@@ -50,7 +50,6 @@ where
 #define Thunk_  (Thunk m)
 #define ResolvingState_  (ResolvingState m)
 #define KickedThunk_  (KickedThunk m)
-#define IORef_ IORef m
 #define MVar_  MVar m
 #define M      m
 
@@ -64,13 +63,10 @@ import Control.Monad.IO.Class
 #define Thunk_  Thunk
 #define ResolvingState_  ResolvingState
 #define KickedThunk_  KickedThunk
-#define IORef_ IORef
 #define MVar_  MVar
 #define M      IO
 
 import Control.Concurrent.MVar
-import Control.Concurrent
-import Data.IORef
 import Data.Unique
 import Control.Monad.IO.Class
 

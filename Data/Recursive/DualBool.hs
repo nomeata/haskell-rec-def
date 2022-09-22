@@ -26,7 +26,6 @@ Use @RBool@ from "Data.Recursive.Bool" if you want the least solution.
 module Data.Recursive.DualBool (RDualBool, module Data.Recursive.DualBool) where
 
 import Data.Coerce
-import Data.Monoid
 
 import Data.Recursive.Internal
 import qualified Data.Propagator.Purify as Purify

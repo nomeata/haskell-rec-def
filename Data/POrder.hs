@@ -1,10 +1,7 @@
 -- | This module provides the 'POrder' and related classes
 module Data.POrder where
 
-import System.IO.Unsafe
-import Control.Monad.ST
 import Data.Monoid
-import Data.Coerce
 import qualified Data.Set as S
 import Numeric.Natural
 import Data.Function

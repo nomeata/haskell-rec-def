@@ -34,9 +34,6 @@ module Data.Propagator.Purify
 where
 
 import System.IO.Unsafe
-import Control.Monad.ST
-import Data.Monoid
-import Data.Coerce
 
 import Data.Propagator.Class
 import System.IO.RecThunk

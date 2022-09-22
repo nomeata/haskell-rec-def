@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-unused-imports #-}
+
 {-|
 
 This file contains a few examples of using the @rec-def@ library. There is no

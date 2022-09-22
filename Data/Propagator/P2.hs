@@ -27,7 +27,6 @@ import Data.Propagator.Class
 #define P2_  (P2 m)
 #define PBool_  PBool m
 #define PDualBool_  PDualBool m
-#define IORef_ IORef m
 #define MVar_  MVar m
 #define M      m
 
@@ -40,13 +39,11 @@ import Control.Concurrent.Classy
 #define P2_  P2
 #define PBool_  PBool
 #define PDualBool_  PDualBool
-#define IORef_ IORef
 #define MVar_  MVar
 #define M      IO
 
 import Control.Exception
 import Control.Concurrent.MVar
-import Data.IORef
 
 #endif
 
@@ -100,13 +97,14 @@ isTop (P2 p) = readMVar p >>= \case
     SurelyBottom -> pure False
     StillBottom _ -> pure False
 
+#ifndef DEJAFU
+
 -- | Freezes the value. Drops references to watchers.
 freeze :: Ctxt P2_ -> M ()
 freeze (P2 p) = takeMVar p >>= \case
     SurelyTop -> putMVar p SurelyTop
     _  -> putMVar p SurelyBottom
 
-#ifndef DEJAFU
 instance Propagator P2_ Bool where
     newProp = newP2
     newConstProp False = newP2

@@ -177,6 +177,8 @@ jobs:
           echo "package rec-def" >> cabal.project
           echo "    ghc-options: -Werror=missing-methods" >> cabal.project
           cat >> cabal.project <<EOF
+          package rec-def
+            ghc-options: -Werror
           EOF
           $HCPKG list --simple-output --names-only | perl -ne 'for (split /\s+/) { print "constraints: $_ installed\n" unless /^(rec-def)$/; }' >> cabal.project.local
           cat cabal.project

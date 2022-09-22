@@ -1,9 +1,10 @@
+{-# OPTIONS_GHC -Wno-type-defaults #-}
+
 import Test.DejaFu
 import Control.Concurrent.Classy
 import Control.Concurrent.Classy.Async
 import qualified Data.Set as S
 import System.Random
-import Control.Monad
 import Test.Tasty
 import Test.Tasty.DejaFu
 
@@ -11,10 +12,11 @@ import Data.Propagator.Naive
 import Data.Propagator.P2
 import System.IO.RecThunk
 
+t, tr :: (Eq a, Show a) => TestName -> Program pty IO a -> TestTree
 t n = testAuto n
-
 tr n = testAutoWay (randomly (mkStdGen 0) 1000) defaultMemType n
 
+main :: IO ()
 main = defaultMain $ testGroup "tests" $
   [ t "prop 1" $ do
         p1 <- newProp (S.singleton 1)
@@ -30,7 +32,7 @@ main = defaultMain $ testGroup "tests" $
         p1 <- newProp S.empty
         p2 <- newProp S.empty
         pure (p1, p2)) $ \(p1, p2) -> do
-        mapConcurrently id
+        mapConcurrently_ id
             [ lift1 (S.insert 3) p1 p2
             , lift1 (S.insert 4) p2 p1
             ]
@@ -41,7 +43,7 @@ main = defaultMain $ testGroup "tests" $
         p2 <- newProp S.empty
         p3 <- newProp S.empty
         pure (p1, p2, p3)) $ \(p1, p2, p3) -> do
-        mapConcurrently id
+        mapConcurrently_ id
             [ lift1 (S.insert 3) p1 p2
             , lift1 (S.insert 4) p2 p1
             ]
@@ -57,7 +59,7 @@ main = defaultMain $ testGroup "tests" $
         p2 <- newProp S.empty
         p3 <- newProp S.empty
         pure (p1, p2, p3)) $ \(p1, p2, p3) -> do
-        mapConcurrently id
+        mapConcurrently_ id
             [ lift1 (S.insert 3) p1 p2
             , lift1 (S.insert 4) p2 p1
             , lift1 (S.insert 5) p2 p3
@@ -69,7 +71,7 @@ main = defaultMain $ testGroup "tests" $
         p2 <- newProp S.empty
         p3 <- newProp S.empty
         pure (p1, p2, p3)) $ \(p1, p2, p3) -> do
-        mapConcurrently id
+        mapConcurrently_ id
             [ lift1 (S.insert 4) p1 p2
             , lift1 (S.insert 5) p2 p3
             , lift2 (S.union) p2 p3 p1
@@ -82,7 +84,7 @@ main = defaultMain $ testGroup "tests" $
         p3 <- newProp S.empty
         p4 <- newProp S.empty
         pure (p1, p2, p3, p4)) $ \(p1, p2, p3, p4) -> do
-        mapConcurrently id
+        mapConcurrently_ id
             [ lift1 (S.insert 4) p1 p2
             , lift2 (S.union) p1 p2 p3
             , liftList (S.unions) [p1,p2,p3] p4
@@ -169,7 +171,7 @@ main = defaultMain $ testGroup "tests" $
   , t "P2 2" $ do
     p1 <- newP2
     p2 <- newP2
-    mapConcurrently id
+    mapConcurrently_ id
         [ do
             False <- isTop p1
             setTop p1
@@ -184,7 +186,7 @@ main = defaultMain $ testGroup "tests" $
   , t "P2 2 rec bottom" $ do
     p1 <- newP2
     p2 <- newP2
-    mapConcurrently id
+    mapConcurrently_ id
         [  p1 `implies` p2
         ,  p2 `implies` p1
         ]
@@ -193,7 +195,7 @@ main = defaultMain $ testGroup "tests" $
   , t "P2 2 rec top" $ do
     p1 <- newP2
     p2 <- newP2
-    mapConcurrently id
+    mapConcurrently_ id
         [  p1 `implies` p2
         ,  p2 `implies` p1
         , setTop p1

@@ -66,10 +66,6 @@ module Data.Recursive.Map
   ) where
 
 import qualified Data.Map as M
-import qualified Data.Set as S
-import Data.Coerce
-import Data.Monoid
-import Control.Monad
 
 import Data.Recursive.Internal
 import qualified Data.Recursive.Set as RS
@@ -165,7 +161,7 @@ fromSet f s = RMap s (M.fromSet f (RS.get s))
 
 -- | prop> RS.get (RM.keysSet m) === M.keysSet (RM.get m)
 keysSet :: RMap a b -> RS.RSet a
-keysSet ~(RMap rs m) = RS.id rs
+keysSet ~(RMap rs _) = RS.id rs
   -- better use RS.id either here or in fromSet, to avoid unproductive loops
 
 -- | prop> RM.get (RM.restrictKeys m s) === M.restrictKeys (RM.get m) (RS.get s)
@@ -175,16 +171,16 @@ restrictKeys ~(RMap rs m) s2 =
 
 -- | prop> RB.get (RM.member k m) === M.member k (RM.get m)
 member :: Ord a => a -> RMap a b -> RBool
-member x ~(RMap rs m) = RS.member x rs
+member x ~(RMap rs _) = RS.member x rs
 
 -- | prop> RDB.get (RM.notMember n r1) === M.notMember n (RM.get r1)
 notMember :: Ord a => a -> RMap a b -> RDualBool
-notMember x ~(RMap rs m) = RS.notMember x rs
+notMember x ~(RMap rs _) = RS.notMember x rs
 
 -- | prop> RDB.get (RM.disjoint m1 m2) === M.disjoint (RM.get m1) (RM.get m2)
 disjoint :: Ord a => RMap a b -> RMap a b -> RDualBool
-disjoint ~(RMap rs1 _ ) ~(RMap rs2 m2) = RS.disjoint rs1 rs2
+disjoint ~(RMap rs1 _ ) ~(RMap rs2 _) = RS.disjoint rs1 rs2
 
 -- | prop> RDB.get (RM.null m) === M.null (RM.get m)
 null :: Ord a =>  RMap a b -> RDualBool
-null ~(RMap rs m) = RS.null rs
+null ~(RMap rs _) = RS.null rs

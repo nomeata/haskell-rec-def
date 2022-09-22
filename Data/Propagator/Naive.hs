@@ -62,9 +62,9 @@ import Data.IORef
 
 -- | A cell in a propagator network
 data Prop_ a = Prop
-    { val :: IORef_ a
-    , lock :: MVar_ ()
-    , onChange :: IORef_ (Maybe (M ()))
+    { _val :: IORef_ a
+    , _lock :: MVar_ ()
+    , _onChange :: IORef_ (Maybe (M ()))
     }
 
 -- | Creates a cell, initialized to bottom

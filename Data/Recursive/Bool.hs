@@ -27,7 +27,6 @@ module Data.Recursive.Bool (RBool, module Data.Recursive.Bool) where
 
 
 import Data.Coerce
-import Data.Monoid
 
 import Data.Recursive.Internal
 import qualified Data.Propagator.Purify as Purify

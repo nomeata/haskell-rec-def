@@ -13,7 +13,6 @@ module Data.Recursive.Set (RSet, module Data.Recursive.Set) where
 
 import qualified Data.Set as S
 import Data.Coerce
-import Data.Monoid
 import Control.Monad
 
 import Data.Recursive.Internal
