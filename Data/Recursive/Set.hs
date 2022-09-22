@@ -92,6 +92,15 @@ notMember x = coerce $ Purify.def1 $ \ps pb -> do
     watchProp ps update
     update
 
+-- | prop> RDB.get (RS.null s) === S.null (RS.get s)
+null :: RSet a -> RDualBool
+null = coerce $ Purify.def1 $ \ps pb -> do
+    let update = do
+            s <- readProp ps
+            unless (S.null s) $ setTop pb
+    watchProp ps update
+    update
+
 -- | prop> RDB.get (RS.disjoint r1 r2) === S.disjoint (RS.get r1) (RS.get r2)
 disjoint :: Ord a => RSet a -> RSet a -> RDualBool
 disjoint = coerce $ Purify.def2 $ \ps1 ps2 pb -> do
