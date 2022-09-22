@@ -68,14 +68,14 @@ data Prop_ a = Prop
     }
 
 -- | Creates a cell, initialized to bottom
-newProp :: Ctxt Bottom a => M (Prop_ a)
-newProp = do
-    m <- newIORef bottom
+newProp :: Ctxt a -> M (Prop_ a)
+newProp x = do
+    m <- newIORef x
     l <- newMVar ()
     notify <- newIORef (Just (pure ()))
     pure $ Prop m l notify
 
--- | Creates a cell, given an initial value
+-- | Creates a constant cell, given an initial value
 newConstProp :: Ctxt a -> M (Prop_ a)
 newConstProp x = do
     m <- newIORef x
@@ -150,7 +150,7 @@ liftList f ps p = do
 
 #ifndef DEJAFU
 instance Bottom a => Class.Propagator (Prop_ a) a where
-    newProp = newProp
+    newProp = newProp bottom
     newConstProp = newConstProp
     freezeProp = freezeProp
     readProp = readProp
