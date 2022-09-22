@@ -89,3 +89,19 @@ or = coerce $ Purify.defList go
 not :: RBool -> RDualBool
 not = coerce $ Purify.def1 $ \p1 p -> do
     implies p1 p
+
+-- | The identity function. This is useful when tying the knot, to avoid a loop that bottoms out:
+--
+-- > let x = x in RDB.get x
+--
+-- will not work, but
+--
+-- >>> let x = RDB.id x in RDB.get x
+-- True
+--
+-- does.
+--
+-- | prop> RDB.get (RDB.id r) === RDB.get r
+id :: RDualBool -> RDualBool
+id = coerce $ Purify.def1 $ \p1 p ->
+    implies p1 p
