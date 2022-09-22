@@ -69,7 +69,7 @@ new ts1 ts2 act = unsafePerformIO $ do
     t2 <- thunk $ freezeProp p >> pure ts2
     pure (Purify p t1 t2)
 
--- | Defines a value of type @R b@ to be a function of the values of @R a@.
+-- | Defines a value of type @Purify b@ to be a function of the values of @Purify a@.
 --
 -- The action passed should declare that relation to the underlying propagator.
 --
@@ -80,7 +80,7 @@ def1 :: (Propagator pa a, Propagator pb b) =>
 def1 def r1 = new [pre r1] [post r1] $ \p -> do
     def (prop r1) p
 
--- | Defines a value of type @R c@ to be a function of the values of @R a@ and @R b@.
+-- | Defines a value of type @Purify c@ to be a function of the values of @Purify a@ and @Purify b@.
 --
 -- The action passed should declare that relation to the underlying propagator.
 --
@@ -91,7 +91,7 @@ def2 :: (Propagator pa a, Propagator pb b, Propagator pc c) =>
 def2 def r1 r2 = new [pre r1, pre r2] [post r1, post r2] $ \p -> do
     def (prop r1) (prop r2) p
 
--- | Defines a value of type @R b@ to be a function of the values of a list of @R a@ values.
+-- | Defines a value of type @Purify b@ to be a function of the values of a list of @Purify a@ values.
 --
 -- The action passed should declare that relation to the underlying propagator.
 --
@@ -102,7 +102,7 @@ defList :: (Propagator pa a, Propagator pb b) =>
 defList def rs = new (map pre rs) (map post rs) $ \p -> do
     def (map prop rs) p
 
--- | Extract the value from a @R a@. This must not be used when /defining/ that value.
+-- | Extract the value from a @Purify a@. This must not be used when /defining/ that value.
 get :: Propagator pa a => Purify pa -> a
 get r = unsafePerformIO $ do
     force (pre r)
