@@ -48,62 +48,63 @@ import System.IO.RecThunk
 --
 -- Do not use the extracted value in the definition of that value, this will
 -- loop just like a recursive definition with plain values would!
-data Purify p = Purify p Thunk
+data Purify p = Purify
+        { prop :: p
+        , pre :: Thunk
+        , post :: Thunk
+        }
 
 -- | Any value of type @a@ is also a value of type @Purify p@ if @p@ is a propagator for @a@.
 mk :: Propagator p a => a -> Purify p
 mk x = unsafePerformIO $ do
     p <- newConstProp x
-    t <- doneThunk
-    pure (Purify p t)
+    t1 <- doneThunk
+    t2 <- doneThunk
+    pure (Purify p t1 t2)
 
-new :: Propagator p a => (p -> IO [Thunk]) -> Purify p
-new act = unsafePerformIO $ do
+new :: Propagator p a => [Thunk] -> [Thunk] -> (p -> IO ()) -> Purify p
+new ts1 ts2 act = unsafePerformIO $ do
     p <- newProp
-    t <- thunk (act p)
-    pure (Purify p t)
+    t1 <- thunk $ act p >> pure ts1
+    t2 <- thunk $ freezeProp p >> pure ts2
+    pure (Purify p t1 t2)
 
 -- | Defines a value of type @R b@ to be a function of the values of @R a@.
 --
--- The action passed it should declare that relation to the underlying propagator.
+-- The action passed should declare that relation to the underlying propagator.
 --
 -- The @Prop a@ propagator must only be used for reading values /from/.
 def1 :: (Propagator pa a, Propagator pb b) =>
     (pa -> pb -> IO ()) ->
     Purify pa -> Purify pb
-def1 def r1 = new $ \p -> do
-    let Purify p1 t1 = r1
-    def p1 p
-    pure [t1]
+def1 def r1 = new [pre r1] [post r1] $ \p -> do
+    def (prop r1) p
 
 -- | Defines a value of type @R c@ to be a function of the values of @R a@ and @R b@.
 --
--- The action passed it should declare that relation to the underlying propagator.
+-- The action passed should declare that relation to the underlying propagator.
 --
 -- The @Prop a@ and @Prop b@ propagators must only be used for reading values /from/.
 def2 :: (Propagator pa a, Propagator pb b, Propagator pc c) =>
     (pa -> pb -> pc -> IO ()) ->
     Purify pa -> Purify pb -> Purify pc
-def2 def r1 r2 = new $ \p -> do
-    let Purify p1 t1 = r1
-    let Purify p2 t2 = r2
-    def p1 p2 p
-    pure [t1, t2]
+def2 def r1 r2 = new [pre r1, pre r2] [post r1, post r2] $ \p -> do
+    def (prop r1) (prop r2) p
 
 -- | Defines a value of type @R b@ to be a function of the values of a list of @R a@ values.
 --
--- The action passed it should declare that relation to the underlying propagator.
+-- The action passed should declare that relation to the underlying propagator.
 --
 -- The @Prop a@ propagators must only be used for reading values /from/.
 defList :: (Propagator pa a, Propagator pb b) =>
     ([pa] -> pb -> IO ()) ->
     [Purify pa] -> Purify pb
-defList def rs = new $ \p -> do
-    def [ p' | Purify p' _ <- rs] p
-    pure [ t | Purify _ t <- rs]
+defList def rs = new (map pre rs) (map post rs) $ \p -> do
+    def (map prop rs) p
 
 -- | Extract the value from a @R a@. This must not be used when /defining/ that value.
 get :: Propagator pa a => Purify pa -> a
-get (Purify p t) = unsafePerformIO $ do
-    force t
-    readProp p
+get r = unsafePerformIO $ do
+    force (pre r)
+    force (post r)
+    readProp (prop r)
