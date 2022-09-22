@@ -22,8 +22,8 @@ instance Eq a => Bottom (FastSet a) where bottom = FastSet empty
 
 instance Ord a => ChangeAction (S.Set a) (FastSet a) where
   update = coerce union
-  diff = coerce difference
-  noop = coerce isSubsetOf
+  kickoff = fastSet
+  noChange dx x y = coerce isSubsetOf dx x
 
 instance Ord a => Change (FastSet a) where type Delta (FastSet a) = Set a
 
@@ -35,16 +35,19 @@ rEmpty = mkR bottom
 
 rInsert :: Ord a => a -> R (FastSet a) -> R (FastSet a)
 -- We could remove x from the delta to a here, but it shouldn't be necessary.
-rInsert x = defR1 $ lift1 (coerce $ S.insert x) (S.delete x . delta)
+rInsert x = defR1 $ lift1simple (coerce $ S.insert x) (S.delete x)
 
 rFilter :: Ord a => (a -> Bool) -> R (FastSet a) -> R (FastSet a)
-rFilter f = defR1 $ lift1 (coerce $ S.filter f) (S.filter f . delta)
+rFilter f = defR1 $ lift1simple (coerce $ S.filter f) (S.filter f)
 
-rUnion :: Ord a => R (FastSet a) -> R (FastSet a) -> R (FastSet a)
-rUnion = defR2 $ lift2 (coerce S.union) f1 f2
+rUnion :: forall a. Ord a => R (FastSet a) -> R (FastSet a) -> R (FastSet a)
+rUnion = defR2 $ lift2 init f1 f2
   where
-    f1 ua b = delta ua `S.difference` fastSet b
-    f2 a ub = delta ub `S.difference` fastSet a
+    init :: FastSet a -> FastSet a -> (FastSet a, (FastSet a, FastSet a))
+    init a b = (coerce S.union a b, (a, b))
+    f1, f2 :: Update (FastSet a) -> (FastSet a, FastSet a) -> (Set a, (FastSet a, FastSet a))
+    f1 ua (a,b) = (delta ua `S.difference` fastSet b, (new ua, b))
+    f2 ub (a,b) = (delta ub `S.difference` fastSet a, (a, new ub))
 
 -- I can find a better way to do this.
 rUnions :: Ord a => [R (FastSet a)] -> R (FastSet a)
