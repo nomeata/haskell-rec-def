@@ -1,4 +1,5 @@
 import Test.DocTest
+main :: IO ()
 main = do
     -- Why do I have to call them separately?
     doctest ["--fast", "-package=QuickCheck","Data/Recursive/Bool.hs"]
