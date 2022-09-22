@@ -17,6 +17,7 @@ module Data.Propagator.Naive
     ( Prop
     , newProp
     , newConstProp
+    , freezeProp
     , readProp
     , watchProp
     , setProp
@@ -28,6 +29,7 @@ module Data.Propagator.Naive
 
 import Control.Monad
 import Data.POrder
+import Data.Maybe
 
 import qualified Data.Propagator.Class as Class
 
@@ -52,6 +54,7 @@ import Control.Concurrent.Classy
 #define MVar_  MVar
 #define M      IO
 
+import Control.Exception
 import Control.Concurrent.MVar
 import Data.IORef
 
@@ -61,41 +64,67 @@ import Data.IORef
 data Prop_ a = Prop
     { val :: IORef_ a
     , lock :: MVar_ ()
-    , onChange :: IORef_ (M ())
+    , onChange :: IORef_ (Maybe (M ()))
     }
 
 -- | Creates a cell, initialized to bottom
 newProp :: Ctxt Bottom a => M (Prop_ a)
-newProp = newConstProp bottom
+newProp = do
+    m <- newIORef bottom
+    l <- newMVar ()
+    notify <- newIORef (Just (pure ()))
+    pure $ Prop m l notify
 
 -- | Creates a cell, given an initial value
 newConstProp :: Ctxt a -> M (Prop_ a)
 newConstProp x = do
     m <- newIORef x
     l <- newMVar ()
-    notify <- newIORef (pure ())
+    notify <- newIORef Nothing
     pure $ Prop m l notify
 
 -- | Reads the current value of the cell
 readProp :: Ctxt Prop_ a -> M a
 readProp (Prop m _ _ ) = readIORef m
 
+-- | Is the current propagator already frozen?
+isFrozen :: Ctxt Prop_ a -> M Bool
+isFrozen (Prop _ _ notify) = do
+    isNothing <$> readIORef notify
+
+-- | Marks the propagator as frozen.
+--
+-- Will prevent further calls to setProp and clears the list of watchers (to
+-- allow GC).
+freezeProp :: Ctxt Prop_ a -> M ()
+freezeProp (Prop _ _ notify) = do
+    writeIORef notify Nothing
+
 -- | Sets a new value calculated from the given action. The action is executed atomically.
+--
+-- Throws if the propagator is already frozen
 --
 -- If the value has changed, all watchers are notified afterwards (not atomically).
 setProp :: Ctxt POrder a => Prop_ a -> M a -> M ()
-setProp (Prop m l notify) getX = do
+setProp p@(Prop m l notify) getX = do
+    frozen <- isFrozen p
+    when frozen $ throw Class.WriteToFrozenPropagatorException
     () <- takeMVar l
     old <- readIORef m
     new <- getX
     writeIORef m new
     putMVar l ()
-    unless (old `eqOfLe` new) $ join (readIORef notify)
+    unless (old `eqOfLe` new) $
+        readIORef notify >>= \case
+            Nothing -> pure ()
+            Just act -> act
 
 -- | Watch a cell: If the value changes, the given action is executed
 watchProp :: Ctxt Prop_ a -> M () -> M ()
 watchProp (Prop _ _ notify) f =
-    atomicModifyIORef notify $ \a -> (f >> a, ())
+    atomicModifyIORef notify $ \case
+        Nothing -> (Nothing, ())
+        Just a -> (Just (f >> a), ())
 
 -- | Whenever the first cell changes, update the second, using the given function
 lift1 :: Ctxt POrder b => (a -> b) -> Prop_ a -> Prop_ b -> M ()
@@ -123,5 +152,6 @@ liftList f ps p = do
 instance Bottom a => Class.Propagator (Prop_ a) a where
     newProp = newProp
     newConstProp = newConstProp
+    freezeProp = freezeProp
     readProp = readProp
 #endif
