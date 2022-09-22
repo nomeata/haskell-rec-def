@@ -1,5 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NumericUnderscores #-}
+{-# OPTIONS_GHC -Wno-name-shadowing #-}
 
 {-|
 This test checks that resolved cells do no longer hold on to references to
@@ -11,8 +12,6 @@ module Main where
 
 import qualified Data.Set as S
 import qualified Data.Recursive.Set as RS
-import Data.Recursive.Internal
-import Data.Propagator.Purify
 
 import Data.IORef
 import System.Mem.Weak
@@ -21,6 +20,7 @@ import System.Exit
 import System.Environment
 import Control.Concurrent
 
+main :: IO ()
 main = do
     n <- length <$> getArgs
 
