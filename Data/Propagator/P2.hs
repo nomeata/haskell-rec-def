@@ -44,6 +44,7 @@ import Control.Concurrent.Classy
 #define MVar_  MVar
 #define M      IO
 
+import Control.Exception
 import Control.Concurrent.MVar
 import Data.IORef
 
@@ -51,7 +52,8 @@ import Data.IORef
 
 data MaybeTop_
         = StillBottom (M ()) -- ^ Just act: Still bottom, run act (once!) when triggered
-        | SurelyTop           -- ^ Definitely top
+        | SurelyBottom       -- ^ Definitely bottom 
+        | SurelyTop          -- ^ Definitely top
 
 -- | A type for propagators for the two-point lattice, consisting of bottom and top
 newtype P2_ = P2 (MVar_ MaybeTop_)
@@ -68,6 +70,7 @@ newTopP2 = P2 <$> newMVar SurelyTop
 whenTop :: Ctxt P2_ -> M () -> M ()
 whenTop (P2 p1) act = takeMVar p1 >>= \case
     SurelyTop        -> putMVar p1 SurelyTop >> act
+    SurelyBottom     -> putMVar p1 SurelyBottom
     StillBottom act' -> putMVar p1 (StillBottom (act >> act'))
 
 
@@ -78,6 +81,7 @@ whenTop (P2 p1) act = takeMVar p1 >>= \case
 setTop :: Ctxt P2_ -> M ()
 setTop (P2 p) = takeMVar p >>= \case
     SurelyTop -> putMVar p SurelyTop
+    SurelyBottom -> throw WriteToFrozenPropagatorException
     StillBottom act -> do
         -- Do this first, this breaks cycles
         putMVar p SurelyTop
@@ -93,12 +97,20 @@ implies p1 p2 = whenTop p1 (setTop p2)
 isTop :: Ctxt P2_ -> M Bool
 isTop (P2 p) = readMVar p >>= \case
     SurelyTop -> pure True
+    SurelyBottom -> pure False
     StillBottom _ -> pure False
+
+-- | Freezes the value. Drops references to watchers.
+freeze :: Ctxt P2_ -> M ()
+freeze (P2 p) = takeMVar p >>= \case
+    SurelyTop -> putMVar p SurelyTop
+    _  -> putMVar p SurelyBottom
 
 #ifndef DEJAFU
 instance Propagator P2_ Bool where
     newProp = newP2
     newConstProp False = newP2
     newConstProp True = newTopP2
+    freezeProp = freeze
     readProp = isTop
 #endif
