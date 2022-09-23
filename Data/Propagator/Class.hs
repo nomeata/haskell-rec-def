@@ -17,6 +17,7 @@ class Propagator p x | p -> x where
     freezeProp :: p -> IO ()
     readProp :: p -> IO x
 
+-- | Exception thrown by a propagator when attempting to change the value of a frozen propagator
 data WriteToFrozenPropagatorException = WriteToFrozenPropagatorException
    deriving Show
 instance Exception WriteToFrozenPropagatorException

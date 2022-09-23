@@ -26,8 +26,6 @@ Use 'Data.Recursive.DualBool.RDualBool' from "Data.Recursive.DualBool" if you wa
 module Data.Recursive.Bool (RBool, module Data.Recursive.Bool) where
 
 
-import Data.Coerce
-
 import Data.Recursive.Internal
 import qualified Data.Propagator.Purify as Purify
 import Data.Propagator.P2
@@ -52,42 +50,42 @@ get (RBool p) = Purify.get p
 
 -- | prop> RB.get (RB.mk b) === b
 mk :: Bool -> RBool
-mk b = RBool $ Purify.mk b
+mk b = openR $ Purify.mk b
 
 -- | prop> RB.get RB.true == True
 true :: RBool
-true = RBool $ Purify.mk True
+true = openR $ Purify.mk True
 
 -- | prop> RB.get RB.false == False
 false :: RBool
-false = RBool $ Purify.mk False
+false = openR $ Purify.mk False
 
 -- | prop> RB.get (r1 RB.&& r2) === (RB.get r1 && RB.get r2)
 (&&) :: RBool -> RBool -> RBool
-(&&) = coerce $ Purify.def2 $ \p1 p2 p ->
+(&&) = openR $ Purify.def2 $ \p1 p2 p ->
     whenTop p1 (whenTop p2 (setTop p))
 
 -- | prop> RB.get (r1 RB.|| r2) === (RB.get r1 || RB.get r2)
 (||) :: RBool -> RBool -> RBool
-(||) = coerce $ Purify.def2 $ \p1 p2 p -> do
+(||) = openR $ Purify.def2 $ \p1 p2 p -> do
     whenTop p1 (setTop p)
     whenTop p2 (setTop p)
 
 -- | prop> RB.get (RB.and rs) === and (map RB.get rs)
 and :: [RBool] -> RBool
-and = coerce $ Purify.defList $ go
+and = openR $ Purify.defList $ go
   where
     go [] p = setTop p
     go (p':ps) p = whenTop p' (go ps p)
 
 -- | prop> RB.get (RB.or rs) === or (map RB.get rs)
 or :: [RBool] -> RBool
-or = coerce $ Purify.defList $  \ps p ->
+or = openR $ Purify.defList $  \ps p ->
     mapM_ @[] (`implies` p) ps
 
 -- | prop> RB.get (RB.not r1) === not (RDB.get r1)
 not :: RDualBool -> RBool
-not = coerce $ Purify.def1 $ \p1 p -> do
+not = openR $ Purify.def1 $ \p1 p -> do
     implies p1 p
 
 -- | The identity function. This is useful when tying the knot, to avoid a loop that bottoms out:
@@ -103,5 +101,5 @@ not = coerce $ Purify.def1 $ \p1 p -> do
 --
 -- prop> RB.get (RB.id r) === RB.get r
 id :: RBool -> RBool
-id = coerce $ Purify.def1 $ \p1 p ->
+id = openR $ Purify.def1 $ \p1 p ->
     implies p1 p
