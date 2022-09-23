@@ -25,8 +25,6 @@ Use @RBool@ from "Data.Recursive.Bool" if you want the least solution.
 -}
 module Data.Recursive.DualBool (RDualBool, module Data.Recursive.DualBool) where
 
-import Data.Coerce
-
 import Data.Recursive.Internal
 import qualified Data.Propagator.Purify as Purify
 import Data.Propagator.P2
@@ -51,42 +49,42 @@ get (RDualBool p) = Prelude.not (Purify.get p)
 
 -- | prop> RDB.get (RDB.mk b) === b
 mk :: Bool -> RDualBool
-mk b = RDualBool $ Purify.mk (Prelude.not b)
+mk b = openR $ Purify.mk (Prelude.not b)
 
 -- | prop> RDB.get RDB.true == True
 true :: RDualBool
-true = RDualBool $ Purify.mk False
+true = openR $ Purify.mk False
 
 -- | prop> RDB.get RDB.false == False
 false :: RDualBool
-false = RDualBool $ Purify.mk True
+false = openR $ Purify.mk True
 
 -- | prop> RDB.get (r1 RDB.&& r2) === (RDB.get r1 && RDB.get r2)
 (&&) :: RDualBool -> RDualBool -> RDualBool
-(&&) = coerce $ Purify.def2 $ \p1 p2 p -> do
+(&&) = openR $ Purify.def2 $ \p1 p2 p -> do
     whenTop p1 (setTop p)
     whenTop p2 (setTop p)
 
 -- | prop> RDB.get (r1 RDB.|| r2) === (RDB.get r1 || RDB.get r2)
 (||) :: RDualBool -> RDualBool -> RDualBool
-(||) = coerce $ Purify.def2 $ \p1 p2 p ->
+(||) = openR $ Purify.def2 $ \p1 p2 p ->
     whenTop p1 (whenTop p2 (setTop p))
 
 -- | prop> RDB.get (RDB.and rs) === and (map RDB.get rs)
 and :: [RDualBool] -> RDualBool
-and = coerce $ Purify.defList $ \ps p ->
+and = openR $ Purify.defList $ \ps p ->
     mapM_ @[] (`implies` p) ps
 
 -- | prop> RDB.get (RDB.or rs) === or (map RDB.get rs)
 or :: [RDualBool] -> RDualBool
-or = coerce $ Purify.defList go
+or = openR $ Purify.defList go
   where
     go [] p = setTop p
     go (p':ps) p = whenTop p' (go ps p)
 
 -- | prop> RDB.get (RDB.not r1) === not (RB.get r1)
 not :: RBool -> RDualBool
-not = coerce $ Purify.def1 $ \p1 p -> do
+not = openR $ Purify.def1 $ \p1 p -> do
     implies p1 p
 
 -- | The identity function. This is useful when tying the knot, to avoid a loop that bottoms out:
@@ -102,5 +100,5 @@ not = coerce $ Purify.def1 $ \p1 p -> do
 --
 -- | prop> RDB.get (RDB.id r) === RDB.get r
 id :: RDualBool -> RDualBool
-id = coerce $ Purify.def1 $ \p1 p ->
+id = openR $ Purify.def1 $ \p1 p ->
     implies p1 p

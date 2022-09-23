@@ -12,7 +12,6 @@ fromList [23,42]
 module Data.Recursive.Set (RSet, module Data.Recursive.Set) where
 
 import qualified Data.Set as S
-import Data.Coerce
 import Control.Monad
 
 import Data.Recursive.Internal
@@ -51,31 +50,31 @@ singleton x = RSet $ Purify.mk $ S.singleton x
 
 -- | prop> RS.get (RS.insert n r1) === S.insert n (RS.get r1)
 insert :: Ord a => a -> RSet a -> RSet a
-insert x = coerce $ Purify.def1 $ lift1 $ S.insert x
+insert x = openR $ Purify.def1 $ lift1 $ S.insert x
 
 -- | prop> RS.get (RS.delete n r1) === S.delete n (RS.get r1)
 delete :: Ord a => a -> RSet a -> RSet a
-delete x = coerce $ Purify.def1 $ lift1 $ S.delete x
+delete x = openR $ Purify.def1 $ lift1 $ S.delete x
 
 -- | prop> \(Fun _ p) -> RS.get (RS.filter p r1) === S.filter p (RS.get r1)
 filter :: Ord a => (a -> Bool) -> RSet a -> RSet a
-filter f = coerce $ Purify.def1 $ lift1 $ S.filter f
+filter f = openR $ Purify.def1 $ lift1 $ S.filter f
 
 -- | prop> RS.get (RS.union r1 r2) === S.union (RS.get r1) (RS.get r2)
 union :: Ord a => RSet a -> RSet a -> RSet a
-union = coerce $ Purify.def2 $ lift2 S.union
+union = openR $ Purify.def2 $ lift2 S.union
 
 -- | prop> RS.get (RS.unions rs) === S.unions (map RS.get rs)
 unions :: Ord a => [RSet a] -> RSet a
-unions = coerce $ Purify.defList $ liftList S.unions
+unions = openR $ Purify.defList $ liftList S.unions
 
 -- | prop> RS.get (RS.intersection r1 r2) === S.intersection (RS.get r1) (RS.get r2)
 intersection :: Ord a => RSet a -> RSet a -> RSet a
-intersection = coerce $ Purify.def2 $ lift2 S.intersection
+intersection = openR $ Purify.def2 $ lift2 S.intersection
 
 -- | prop> RB.get (RS.member n r1) === S.member n (RS.get r1)
 member :: Ord a => a -> RSet a -> RBool
-member x = coerce $ Purify.def1 $ \ps pb -> do
+member x = openR $ Purify.def1 $ \ps pb -> do
     let update = do
             s <- readProp ps
             when (S.member x s) $ setTop pb
@@ -84,7 +83,7 @@ member x = coerce $ Purify.def1 $ \ps pb -> do
 
 -- | prop> RDB.get (RS.notMember n r1) === S.notMember n (RS.get r1)
 notMember :: Ord a => a -> RSet a -> RDualBool
-notMember x = coerce $ Purify.def1 $ \ps pb -> do
+notMember x = openR $ Purify.def1 $ \ps pb -> do
     let update = do
             s <- readProp ps
             when (S.member x s) $ setTop pb
@@ -93,7 +92,7 @@ notMember x = coerce $ Purify.def1 $ \ps pb -> do
 
 -- | prop> RDB.get (RS.null s) === S.null (RS.get s)
 null :: RSet a -> RDualBool
-null = coerce $ Purify.def1 $ \ps pb -> do
+null = openR $ Purify.def1 $ \ps pb -> do
     let update = do
             s <- readProp ps
             unless (S.null s) $ setTop pb
@@ -102,7 +101,7 @@ null = coerce $ Purify.def1 $ \ps pb -> do
 
 -- | prop> RDB.get (RS.disjoint r1 r2) === S.disjoint (RS.get r1) (RS.get r2)
 disjoint :: Ord a => RSet a -> RSet a -> RDualBool
-disjoint = coerce $ Purify.def2 $ \ps1 ps2 pb -> do
+disjoint = openR $ Purify.def2 $ \ps1 ps2 pb -> do
     let update = do
             s1 <- readProp ps1
             s2 <- readProp ps2
@@ -124,4 +123,4 @@ disjoint = coerce $ Purify.def2 $ \ps1 ps2 pb -> do
 --
 -- | prop> RS.get (RS.id s) === RS.get s
 id :: RSet a -> RSet a
-id = coerce $ Purify.def1 $ lift1 (Prelude.id :: S.Set a -> S.Set a)
+id = openR $ Purify.def1 $ lift1 Prelude.id
