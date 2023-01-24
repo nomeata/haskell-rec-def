@@ -12,7 +12,7 @@ fromList [23,42]
 module Data.Recursive.Set (RSet, module Data.Recursive.Set) where
 
 import qualified Data.Set as S
-import Control.Monad
+import Control.Monad hiding (when)
 
 import Data.Recursive.Internal
 import qualified Data.Propagator.Purify as Purify
@@ -31,6 +31,8 @@ import Data.Propagator.P2
 -- >>> import Test.QuickCheck
 -- >>> instance (Ord a, Arbitrary a) => Arbitrary (RS.RSet a) where arbitrary = RS.mk <$> arbitrary
 -- >>> instance (Ord a, Show a) => Show (RS.RSet a) where show = show . RS.get
+-- >>> instance Arbitrary RB.RBool where arbitrary = RB.mk <$> arbitrary
+-- >>> instance Show RB.RBool where show = show . RB.get
 
 -- | Extracts the value of a 'RSet a'
 get :: RSet a -> S.Set a
@@ -77,7 +79,7 @@ member :: Ord a => a -> RSet a -> RBool
 member x = openR $ Purify.def1 $ \ps pb -> do
     let update = do
             s <- readProp ps
-            when (S.member x s) $ setTop pb
+            if S.member x s then setTop pb else pure ()
     watchProp ps update
     update
 
@@ -86,7 +88,7 @@ notMember :: Ord a => a -> RSet a -> RDualBool
 notMember x = openR $ Purify.def1 $ \ps pb -> do
     let update = do
             s <- readProp ps
-            when (S.member x s) $ setTop pb
+            if S.member x s then setTop pb else pure ()
     watchProp ps update
     update
 
@@ -109,6 +111,14 @@ disjoint = openR $ Purify.def2 $ \ps1 ps2 pb -> do
     watchProp ps1 update
     watchProp ps2 update
     update
+
+-- | An kind of if-then-else statement. Because of monotonicity requirements,
+-- this should be sufficient.
+--
+-- prop> RS.get (RS.when b r) === (if RB.get b then RS.get r else S.empty)
+when :: RBool -> RSet a -> RSet a
+when = openR $ Purify.def2 $ \pb ps1 ps2 -> do
+    whenTop pb $ lift1 Prelude.id ps1 ps2
 
 -- | The identity function. This is useful when tying the knot, to avoid a loop that bottoms out:
 --
