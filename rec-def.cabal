@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               rec-def
-version:            0.2
+version:            0.2.1
 synopsis:           Recursively defined values
 description:
    This library provides safe APIs that allow you to define and calculate
