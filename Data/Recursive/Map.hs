@@ -30,11 +30,11 @@ structures, we can use them inside these maps:
  :}
 fromList [(23,fromList ["Hi"])]
 
-I am looking for a concice but useful example for this feature to be put here! 
+I am looking for a concice but useful example for this feature to be put here!
 
 An alternative would be to order these maps using a pointwise order on the maps
 of elements (and do a simple fixed-point iteration underneath). But then we
-could provide a general 'RM.unionWith' function, because not every function
+could not provide a general 'RM.unionWith' function, because not every function
 passed to it would be monotone.
 
 -}
@@ -60,11 +60,14 @@ module Data.Recursive.Map
   , notMember
   , disjoint
   , Data.Recursive.Map.null
+  , map
+  , mapWithKey
   , fromSet
   , keysSet
   , restrictKeys
   ) where
 
+import Prelude hiding (map)
 import qualified Data.Map as M
 
 import Data.Recursive.Internal
@@ -154,6 +157,13 @@ intersectionWith f ~(RMap rs1 m1) ~(RMap rs2 m2) = build (RS.intersection rs1 rs
 intersectionWithKey :: Ord a => (a -> b -> b -> b) -> RMap a b -> RMap a b -> RMap a b
 intersectionWithKey f ~(RMap rs1 m1) ~(RMap rs2 m2) = build (RS.intersection rs1 rs2) (M.intersectionWithKey f m1 m2)
 
+-- | prop> RM.get (RM.map (applyFun f) m) === M.map (applyFun f) (RM.get m)
+map :: Ord k => (a -> b) -> RMap k a -> RMap k b
+map f ~(RMap rs m) = build (RS.id rs) (M.map f m)
+
+-- | prop> RM.get (RM.mapWithKey (applyFun2 f) m) === M.mapWithKey (applyFun2 f) (RM.get m)
+mapWithKey :: Ord k => (k -> a -> b) -> RMap k a -> RMap k b
+mapWithKey f ~(RMap rs m) = build (RS.id rs) (M.mapWithKey f m)
 
 -- | prop> RM.get (RM.singleton k v) === M.singleton k v
 fromSet :: (a -> b) -> RS.RSet a -> RMap a b

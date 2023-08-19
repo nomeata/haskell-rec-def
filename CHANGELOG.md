@@ -1,5 +1,9 @@
 # Revision history for rec-def
 
+## 0.2.2 -- 2023-08-19
+
+* Add `RMap.map` and `RMap.mapWithKey`
+
 ## 0.2.1 -- 2023-02-18
 
 * Add `Data.Recursive.Set.when`
