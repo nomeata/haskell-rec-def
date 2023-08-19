@@ -1,5 +1,5 @@
 {
-  inputs.nixpkgs.url = github:NixOS/nixpkgs/release-22.11;
+  inputs.nixpkgs.url = github:NixOS/nixpkgs/release-23.05;
   description = "rec-def development environment";
   outputs = { self, nixpkgs }: {
     devShell.x86_64-linux =
