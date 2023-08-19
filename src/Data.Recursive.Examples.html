@@ -1,0 +1,210 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# OPTIONS_GHC -Wno-unused-imports #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-comment">{-|
+
+This file contains a few examples of using the @rec-def@ library. There is no
+need to actually use this module.
+
+= A @rec-def@ tutorial
+
+Imagine you are trying to calculate a boolean value, but your calculation is
+happens to be recursive. Just writing down the equations does not work:
+
+&gt;&gt;&gt; withTimeout $ let x = y || False; y = x &amp;&amp; False in x
+*** Exception: timed out
+
+This is unfortunate, isn&#8217;t it?
+
+== A @Bool@ with recursive equations
+
+This library provides data types where this works. You can write the equations
+in that way just fine, and still get a result.
+
+For example, the 'Data.Recursive.Bool.RBool' type comes with functions that look quite like their
+ordinary counterparts acting on 'Bool'.
+
+&gt;&gt;&gt; import Data.Recursive.Bool (RBool)
+&gt;&gt;&gt; import qualified Data.Recursive.Bool as RB
+
+&gt;&gt;&gt; :t RB.true
+RB.true :: RBool
+&gt;&gt;&gt; :t RB.false
+RB.false :: RBool
+&gt;&gt;&gt; :t (RB.||)
+(RB.||) :: RBool -&gt; RBool -&gt; RBool
+&gt;&gt;&gt; :t (RB.&amp;&amp;)
+(RB.&amp;&amp;) :: RBool -&gt; RBool -&gt; RBool
+&gt;&gt;&gt; RB.get RB.true
+True
+&gt;&gt;&gt; RB.get RB.false
+False
+&gt;&gt;&gt; RB.get (RB.false RB.&amp;&amp; RB.true)
+False
+&gt;&gt;&gt; RB.get (RB.true RB.&amp;&amp; RB.true)
+True
+&gt;&gt;&gt; RB.get (RB.or [RB.true,  RB.false, RB.true])
+True
+
+So far so good, lets see what happens when we try something recursive:
+
+&gt;&gt;&gt; let x = RB.or [y]; y = RB.and [x, RB.false] in RB.get x
+False
+&gt;&gt;&gt; let x = RB.or [y]; y = RB.or [x, RB.false] in RB.get x
+False
+&gt;&gt;&gt; let x = RB.or [y]; y = RB.or [x, RB.true] in RB.get x
+True
+&gt;&gt;&gt; let x = RB.or [y]; y = RB.or [x] in RB.get x
+False
+
+== Least or greatest solution
+
+The last equation is interesting: We essentially say that @x@ is @True@ if @y@ is
+@True@, and @y@ is @True@ if @x@ is @True@. This has two solutions, we can either set
+both to @True@ and both to @False@.
+
+We (arbitrary) choose to find the least solution, i.e. prefer @False@ and
+only find @True@ if we have to. This is useful, for example, if you check something recursive for errors.
+
+Sometimes you want the other one. Then you can use @RDualBool@. The module
+&quot;Data.Recursive.DualBool&quot; exports all the functions for that type too. We can
+run the same equations, and get different answers:
+
+&gt;&gt;&gt; import Data.Recursive.DualBool (RDualBool)
+&gt;&gt;&gt; import qualified Data.Recursive.DualBool as RDB
+
+
+&gt;&gt;&gt; let x = RDB.or [y]; y = RDB.and [x, RDB.false] in RDB.get x
+False
+&gt;&gt;&gt; let x = RDB.or [y]; y = RDB.or [x, RDB.false] in RDB.get x
+True
+&gt;&gt;&gt; let x = RDB.or [y]; y = RDB.or [x, RDB.true] in RDB.get x
+True
+&gt;&gt;&gt; let x = RDB.or [y]; y = RDB.or [x] in RDB.get x
+True
+
+The negation function is also available, and goes from can-be-true to must-be-true and back:
+
+&gt;&gt;&gt; :t RB.not
+RB.not :: RDualBool -&gt; RBool
+&gt;&gt;&gt; :t RDB.not
+RDB.not :: RBool -&gt; RDualBool
+
+This allows us to mix the different types in the same computation:
+
+&gt;&gt;&gt; :{
+  let x = RB.not y RB.|| RB.not z
+      y = RDB.not x RDB.&amp;&amp; z
+      z = RDB.true
+  in (RB.get x, RDB.get y, RDB.get z)
+ :}
+(False,True,True)
+
+&gt;&gt;&gt; :{
+  let x = RB.not y RB.|| RB.not z
+      y = RDB.not x RDB.&amp;&amp; z
+      z = RDB.false
+  in (RB.get x, RDB.get y, RDB.get z)
+ :}
+(True,False,False)
+
+== Sets
+
+We do not have to stop with booleans, and can define similar APIs for other
+data stuctures, e.g. sets:
+
+&gt;&gt;&gt; import qualified Data.Recursive.Set as RS
+
+Again we can describe sets recursively, using the monotone functions 'RS.empty',
+'RS.insert' and 'RS.union'
+
+&gt;&gt;&gt; :{
+  let s1 = RS.insert 23 s2
+      s2 = RS.insert 42 s1
+  in RS.get s1
+ :}
+fromList [23,42]
+
+Here is a slightly larger example, where we can use this API to elegantly
+calculate the reachable nodes in a graph (represented as a map from vertices to
+their successors), using a typical knot-tying approach. But unless with plain
+'S.Set', it now works even if the graph has cycles:
+
+&gt;&gt;&gt; :{
+   reachable :: M.Map Int [Int] -&gt; M.Map Int (S.Set Int)
+   reachable g = fmap RS.get sets
+     where
+       sets :: M.Map Int (RS.RSet Int)
+       sets = M.mapWithKey (\v vs -&gt; RS.insert v (RS.unions [ sets ! v' | v' &lt;- vs ])) g
+ :}
+
+&gt;&gt;&gt; let graph = M.fromList [(1,[2,3]),(2,[1]),(3,[])]
+&gt;&gt;&gt; reachable graph M.! 1
+fromList [1,2,3]
+&gt;&gt;&gt; reachable graph M.! 3
+fromList [3]
+
+== Caveats
+
+Of course, the magic stops somewhere: Just like with the usual knot-tying
+tricks, you still have to make sure to be lazy enough. In particular, you should
+not peek at the value (e.g. using 'RB.get') while you are building the graph:
+
+&gt;&gt;&gt; :{
+    withTimeout $
+      let x = RB.and [x, if RB.get y then z else RB.true]
+          y = RB.and [x, RB.true]
+          z = RB.false
+      in RB.get y
+    :}
+*** Exception: timed out
+
+Similarly, you have to make sure you recurse through one of these functions; @let x = x@ still does not work:
+
+&gt;&gt;&gt; withTimeout $ let x = x :: RBool in RB.get x
+*** Exception: timed out
+&gt;&gt;&gt; withTimeout $ let x = x RB.&amp;&amp; x in RB.get x
+False
+
+We belive that the APIs provided here are still &#8220;pure&#8221;: evaluation order does not affect the results, and you can replace equals with equals, in the sense that
+
+&gt; let s = RS.insert 42 s in s
+
+is the same as
+
+&gt; let s = RS.insert 42 s in RS.insert 42 s
+
+However, the the following two expressions are not equivalent:
+
+&gt;&gt;&gt; withTimeout $ S.toList $ let s = RS.insert 42 s in RS.get s
+[42]
+&gt;&gt;&gt; withTimeout $ S.toList $ let s () = RS.insert 42 (s ()) in RS.get (s ())
+*** Exception: timed out
+
+It is debatable if that is a problem.
+
+-}</span><span>
+</span><span id="line-186"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Data.Recursive.Examples</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-187"></span><span>
+</span><span id="line-188"></span><span class="hs-comment">-- Imports for haddock</span><span>
+</span><span id="line-189"></span><span>
+</span><span id="line-190"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Data.Recursive.Bool.html"><span class="hs-identifier">Data.Recursive.Bool</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">RB</span></span><span>
+</span><span id="line-191"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Data.Recursive.DualBool.html"><span class="hs-identifier">Data.Recursive.DualBool</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">RDB</span></span><span>
+</span><span id="line-192"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Data.Recursive.Set.html"><span class="hs-identifier">Data.Recursive.Set</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">RS</span></span><span>
+</span><span id="line-193"></span><span>
+</span><span id="line-194"></span><span class="hs-comment">-- $setup</span><span>
+</span><span id="line-195"></span><span class="hs-comment">--</span><span>
+</span><span id="line-196"></span><span class="hs-comment">-- &gt;&gt;&gt; import System.Timeout</span><span>
+</span><span id="line-197"></span><span class="hs-comment">-- &gt;&gt;&gt; import Control.Exception</span><span>
+</span><span id="line-198"></span><span class="hs-comment">-- &gt;&gt;&gt; import Data.Maybe</span><span>
+</span><span id="line-199"></span><span class="hs-comment">-- &gt;&gt;&gt; import Data.Map as M</span><span>
+</span><span id="line-200"></span><span class="hs-comment">-- &gt;&gt;&gt; import qualified Data.Set as S</span><span>
+</span><span id="line-201"></span><span class="hs-comment">-- &gt;&gt;&gt;</span><span>
+</span><span id="line-202"></span><span class="hs-comment">-- &gt;&gt;&gt; :{</span><span>
+</span><span id="line-203"></span><span class="hs-comment">-- let withTimeout :: Show a =&gt; a -&gt; IO a</span><span>
+</span><span id="line-204"></span><span class="hs-comment">--     withTimeout a =</span><span>
+</span><span id="line-205"></span><span class="hs-comment">--       fromMaybe (errorWithoutStackTrace &quot;timed out&quot;) &lt;$&gt;</span><span>
+</span><span id="line-206"></span><span class="hs-comment">--          timeout 100000 (length (show a) `seq` evaluate a)</span><span>
+</span><span id="line-207"></span><span class="hs-comment">-- :}</span><span>
+</span><span id="line-208"></span><span>
+</span><span id="line-209"></span><span>
+</span><span id="line-210"></span></pre></body></html>

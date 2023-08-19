@@ -1,0 +1,237 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE MultiParamTypeClasses #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE CPP #-}</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- | A propagator for the two-point lattice</span><span>
+</span><span id="line-6"></span><span class="hs-comment">--</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Data.Propagator.P2</span><span>
+</span><span id="line-8"></span><span>    </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Data.Propagator.P2.html#P2"><span class="hs-identifier">P2</span></a></span><span>
+</span><span id="line-9"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Propagator.P2.html#newP2"><span class="hs-identifier">newP2</span></a></span><span>
+</span><span id="line-10"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Propagator.P2.html#newTopP2"><span class="hs-identifier">newTopP2</span></a></span><span>
+</span><span id="line-11"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Propagator.P2.html#setTop"><span class="hs-identifier">setTop</span></a></span><span>
+</span><span id="line-12"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Propagator.P2.html#whenTop"><span class="hs-identifier">whenTop</span></a></span><span>
+</span><span id="line-13"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Propagator.P2.html#implies"><span class="hs-identifier">implies</span></a></span><span>
+</span><span id="line-14"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Propagator.P2.html#isTop"><span class="hs-identifier">isTop</span></a></span><span>
+</span><span id="line-15"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span>    </span><span class="hs-keyword">where</span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Propagator.Class.html"><span class="hs-identifier">Data.Propagator.Class</span></a></span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- I want to test this code with dejafu, without carrying it as a dependency</span><span>
+</span><span id="line-21"></span><span class="hs-comment">-- of the main library. So here is a bit of CPP to care for that.</span><span class="hs-cpp">
+
+#ifdef DEJAFU
+</span><span class="hs-cpp">
+#define Ctxt   MonadConc m =&gt;
+</span><span class="hs-cpp">#define MaybeTop_  (MaybeTop m)
+</span><span class="hs-cpp">#define P2_  (P2 m)
+</span><span class="hs-cpp">#define PBool_  PBool m
+</span><span class="hs-cpp">#define PDualBool_  PDualBool m
+</span><span class="hs-cpp">#define MVar_  MVar m
+</span><span class="hs-cpp">#define M      m
+</span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control.Concurrent.Classy</span><span class="hs-cpp">
+
+#else
+</span><span class="hs-cpp">
+#define Ctxt
+</span><span class="hs-cpp">#define MaybeTop_  MaybeTop
+</span><span class="hs-cpp">#define P2_  P2
+</span><span class="hs-cpp">#define PBool_  PBool
+</span><span class="hs-cpp">#define PDualBool_  PDualBool
+</span><span class="hs-cpp">#define MVar_  MVar
+</span><span class="hs-cpp">#define M      IO
+</span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Exception</span></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.MVar</span></span><span class="hs-cpp">
+
+#endif
+</span><span>
+</span><span id="line-50"></span><span class="hs-keyword">data</span><span> </span><span id="MaybeTop"></span><span class="hs-identifier">MaybeTop_</span><span>
+</span><span id="line-51"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span id="StillBottom"><span class="annot"><a href="Data.Propagator.P2.html#StillBottom"><span class="hs-identifier hs-var">StillBottom</span></a></span></span><span> </span><span class="hs-special">(</span><span class="hs-identifier">M</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-comment">-- ^ Just act: Still bottom, run act (once!) when triggered</span><span>
+</span><span id="line-52"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span id="SurelyBottom"><span class="annot"><a href="Data.Propagator.P2.html#SurelyBottom"><span class="hs-identifier hs-var">SurelyBottom</span></a></span></span><span>       </span><span class="hs-comment">-- ^ Definitely bottom </span><span>
+</span><span id="line-53"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span id="SurelyTop"><span class="annot"><a href="Data.Propagator.P2.html#SurelyTop"><span class="hs-identifier hs-var">SurelyTop</span></a></span></span><span>          </span><span class="hs-comment">-- ^ Definitely top</span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span class="hs-comment">-- | A type for propagators for the two-point lattice, consisting of bottom and top</span><span>
+</span><span id="line-56"></span><span class="hs-keyword">newtype</span><span> </span><span id="P2"></span><span class="hs-identifier">P2_</span><span> </span><span class="hs-glyph">=</span><span id="P2"><span> </span></span><span class="hs-identifier">P2</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">MVar_</span><span> </span><span class="hs-identifier">MaybeTop_</span><span class="hs-special">)</span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span class="hs-comment">-- | A new propagator, initialized at bottom</span><span>
+</span><span id="line-59"></span><span class="annot"><a href="Data.Propagator.P2.html#newP2"><span class="hs-identifier hs-type">newP2</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">Ctxt</span><span> </span><span class="hs-identifier">M</span><span> </span><span class="hs-identifier">P2_</span><span>
+</span><span id="line-60"></span><span id="newP2"><span class="annot"><span class="annottext">newP2 :: IO P2
+</span><a href="Data.Propagator.P2.html#newP2"><span class="hs-identifier hs-var hs-var">newP2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop -&gt; P2
+</span><a href="Data.Propagator.P2.html#P2"><span class="hs-identifier hs-var">P2</span></a></span><span> </span><span class="annot"><span class="annottext">(MVar MaybeTop -&gt; P2) -&gt; IO (MVar MaybeTop) -&gt; IO P2
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">MaybeTop -&gt; IO (MVar MaybeTop)
+forall a. a -&gt; IO (MVar a)
+</span><span class="hs-identifier hs-var">newMVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO () -&gt; MaybeTop
+</span><a href="Data.Propagator.P2.html#StillBottom"><span class="hs-identifier hs-var">StillBottom</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; IO ()
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span class="hs-comment">-- | A new propagator, already set to top</span><span>
+</span><span id="line-63"></span><span class="annot"><a href="Data.Propagator.P2.html#newTopP2"><span class="hs-identifier hs-type">newTopP2</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">Ctxt</span><span> </span><span class="hs-identifier">M</span><span> </span><span class="hs-identifier">P2_</span><span>
+</span><span id="line-64"></span><span id="newTopP2"><span class="annot"><span class="annottext">newTopP2 :: IO P2
+</span><a href="Data.Propagator.P2.html#newTopP2"><span class="hs-identifier hs-var hs-var">newTopP2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop -&gt; P2
+</span><a href="Data.Propagator.P2.html#P2"><span class="hs-identifier hs-var">P2</span></a></span><span> </span><span class="annot"><span class="annottext">(MVar MaybeTop -&gt; P2) -&gt; IO (MVar MaybeTop) -&gt; IO P2
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">MaybeTop -&gt; IO (MVar MaybeTop)
+forall a. a -&gt; IO (MVar a)
+</span><span class="hs-identifier hs-var">newMVar</span></span><span> </span><span class="annot"><span class="annottext">MaybeTop
+</span><a href="Data.Propagator.P2.html#SurelyTop"><span class="hs-identifier hs-var">SurelyTop</span></a></span><span>
+</span><span id="line-65"></span><span>
+</span><span id="line-66"></span><span class="hs-comment">-- | @whenTop p act@ runs @act@ if @p@ is already top, or after @setTop p@ is run</span><span>
+</span><span id="line-67"></span><span class="annot"><a href="Data.Propagator.P2.html#whenTop"><span class="hs-identifier hs-type">whenTop</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">Ctxt</span><span> </span><span class="hs-identifier">P2_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">M</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">M</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-68"></span><span id="whenTop"><span class="annot"><span class="annottext">whenTop :: P2 -&gt; IO () -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#whenTop"><span class="hs-identifier hs-var hs-var">whenTop</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Propagator.P2.html#P2"><span class="hs-identifier hs-type">P2</span></a></span><span> </span><span id="local-6989586621679036748"><span class="annot"><span class="annottext">MVar MaybeTop
+</span><a href="#local-6989586621679036748"><span class="hs-identifier hs-var">p1</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679036747"><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679036747"><span class="hs-identifier hs-var">act</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop -&gt; IO MaybeTop
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">takeMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop
+</span><a href="#local-6989586621679036748"><span class="hs-identifier hs-var">p1</span></a></span><span> </span><span class="annot"><span class="annottext">IO MaybeTop -&gt; (MaybeTop -&gt; IO ()) -&gt; IO ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-69"></span><span>    </span><span class="annot"><span class="annottext">MaybeTop
+</span><a href="Data.Propagator.P2.html#SurelyTop"><span class="hs-identifier hs-var">SurelyTop</span></a></span><span>        </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop -&gt; MaybeTop -&gt; IO ()
+forall a. MVar a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">putMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop
+</span><a href="#local-6989586621679036748"><span class="hs-identifier hs-var">p1</span></a></span><span> </span><span class="annot"><span class="annottext">MaybeTop
+</span><a href="Data.Propagator.P2.html#SurelyTop"><span class="hs-identifier hs-var">SurelyTop</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO () -&gt; IO ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679036747"><span class="hs-identifier hs-var">act</span></a></span><span>
+</span><span id="line-70"></span><span>    </span><span class="annot"><span class="annottext">MaybeTop
+</span><a href="Data.Propagator.P2.html#SurelyBottom"><span class="hs-identifier hs-var">SurelyBottom</span></a></span><span>     </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop -&gt; MaybeTop -&gt; IO ()
+forall a. MVar a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">putMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop
+</span><a href="#local-6989586621679036748"><span class="hs-identifier hs-var">p1</span></a></span><span> </span><span class="annot"><span class="annottext">MaybeTop
+</span><a href="Data.Propagator.P2.html#SurelyBottom"><span class="hs-identifier hs-var">SurelyBottom</span></a></span><span>
+</span><span id="line-71"></span><span>    </span><span class="annot"><a href="Data.Propagator.P2.html#StillBottom"><span class="hs-identifier hs-type">StillBottom</span></a></span><span> </span><span id="local-6989586621679036744"><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679036744"><span class="hs-identifier hs-var">act'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop -&gt; MaybeTop -&gt; IO ()
+forall a. MVar a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">putMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop
+</span><a href="#local-6989586621679036748"><span class="hs-identifier hs-var">p1</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO () -&gt; MaybeTop
+</span><a href="Data.Propagator.P2.html#StillBottom"><span class="hs-identifier hs-var">StillBottom</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679036747"><span class="hs-identifier hs-var">act</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO () -&gt; IO ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679036744"><span class="hs-identifier hs-var">act'</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span>
+</span><span id="line-74"></span><span class="hs-comment">-- | Set a propagator to top.</span><span>
+</span><span id="line-75"></span><span class="hs-comment">--</span><span>
+</span><span id="line-76"></span><span class="hs-comment">-- If it was bottom before, runs the actions queued with 'whenTop'. It does so</span><span>
+</span><span id="line-77"></span><span class="hs-comment">-- /after/ setting the propagator to top, so that cycles are broken.</span><span>
+</span><span id="line-78"></span><span class="annot"><a href="Data.Propagator.P2.html#setTop"><span class="hs-identifier hs-type">setTop</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">Ctxt</span><span> </span><span class="hs-identifier">P2_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">M</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-79"></span><span id="setTop"><span class="annot"><span class="annottext">setTop :: P2 -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#setTop"><span class="hs-identifier hs-var hs-var">setTop</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Propagator.P2.html#P2"><span class="hs-identifier hs-type">P2</span></a></span><span> </span><span id="local-6989586621679036743"><span class="annot"><span class="annottext">MVar MaybeTop
+</span><a href="#local-6989586621679036743"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop -&gt; IO MaybeTop
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">takeMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop
+</span><a href="#local-6989586621679036743"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">IO MaybeTop -&gt; (MaybeTop -&gt; IO ()) -&gt; IO ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-80"></span><span>    </span><span class="annot"><span class="annottext">MaybeTop
+</span><a href="Data.Propagator.P2.html#SurelyTop"><span class="hs-identifier hs-var">SurelyTop</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop -&gt; MaybeTop -&gt; IO ()
+forall a. MVar a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">putMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop
+</span><a href="#local-6989586621679036743"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">MaybeTop
+</span><a href="Data.Propagator.P2.html#SurelyTop"><span class="hs-identifier hs-var">SurelyTop</span></a></span><span>
+</span><span id="line-81"></span><span>    </span><span class="annot"><span class="annottext">MaybeTop
+</span><a href="Data.Propagator.P2.html#SurelyBottom"><span class="hs-identifier hs-var">SurelyBottom</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">WriteToFrozenPropagatorException -&gt; IO ()
+forall a e. Exception e =&gt; e -&gt; a
+</span><span class="hs-identifier hs-var">throw</span></span><span> </span><span class="annot"><span class="annottext">WriteToFrozenPropagatorException
+</span><a href="Data.Propagator.Class.html#WriteToFrozenPropagatorException"><span class="hs-identifier hs-var">WriteToFrozenPropagatorException</span></a></span><span>
+</span><span id="line-82"></span><span>    </span><span class="annot"><a href="Data.Propagator.P2.html#StillBottom"><span class="hs-identifier hs-type">StillBottom</span></a></span><span> </span><span id="local-6989586621679036740"><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679036740"><span class="hs-identifier hs-var">act</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-83"></span><span>        </span><span class="hs-comment">-- Do this first, this breaks cycles</span><span>
+</span><span id="line-84"></span><span>        </span><span class="annot"><span class="annottext">MVar MaybeTop -&gt; MaybeTop -&gt; IO ()
+forall a. MVar a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">putMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop
+</span><a href="#local-6989586621679036743"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">MaybeTop
+</span><a href="Data.Propagator.P2.html#SurelyTop"><span class="hs-identifier hs-var">SurelyTop</span></a></span><span>
+</span><span id="line-85"></span><span>        </span><span class="hs-comment">-- Now notify the dependencies</span><span>
+</span><span id="line-86"></span><span>        </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679036740"><span class="hs-identifier hs-var">act</span></a></span><span>
+</span><span id="line-87"></span><span>
+</span><span id="line-88"></span><span class="hs-comment">-- | @p1 `implies` p2@ chains propagators: If @p1@ becomes top, then so does @p2@.</span><span>
+</span><span id="line-89"></span><span class="annot"><a href="Data.Propagator.P2.html#implies"><span class="hs-identifier hs-type">implies</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">Ctxt</span><span> </span><span class="hs-identifier">P2_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">P2_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">M</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-90"></span><span id="implies"><span class="annot"><span class="annottext">implies :: P2 -&gt; P2 -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#implies"><span class="hs-identifier hs-var hs-var">implies</span></a></span></span><span> </span><span id="local-6989586621679036739"><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679036739"><span class="hs-identifier hs-var">p1</span></a></span></span><span> </span><span id="local-6989586621679036738"><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679036738"><span class="hs-identifier hs-var">p2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">P2 -&gt; IO () -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#whenTop"><span class="hs-identifier hs-var">whenTop</span></a></span><span> </span><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679036739"><span class="hs-identifier hs-var">p1</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">P2 -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#setTop"><span class="hs-identifier hs-var">setTop</span></a></span><span> </span><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679036738"><span class="hs-identifier hs-var">p2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span class="hs-comment">-- | Queries the current state of the propagator. All related calls to @setTop@</span><span>
+</span><span id="line-93"></span><span class="hs-comment">-- that have executed so far are taken into account.</span><span>
+</span><span id="line-94"></span><span class="annot"><a href="Data.Propagator.P2.html#isTop"><span class="hs-identifier hs-type">isTop</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">Ctxt</span><span> </span><span class="hs-identifier">P2_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">M</span><span> </span><span class="hs-identifier">Bool</span><span>
+</span><span id="line-95"></span><span id="isTop"><span class="annot"><span class="annottext">isTop :: P2 -&gt; IO Bool
+</span><a href="Data.Propagator.P2.html#isTop"><span class="hs-identifier hs-var hs-var">isTop</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Propagator.P2.html#P2"><span class="hs-identifier hs-type">P2</span></a></span><span> </span><span id="local-6989586621679036737"><span class="annot"><span class="annottext">MVar MaybeTop
+</span><a href="#local-6989586621679036737"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop -&gt; IO MaybeTop
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">readMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop
+</span><a href="#local-6989586621679036737"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">IO MaybeTop -&gt; (MaybeTop -&gt; IO Bool) -&gt; IO Bool
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-96"></span><span>    </span><span class="annot"><span class="annottext">MaybeTop
+</span><a href="Data.Propagator.P2.html#SurelyTop"><span class="hs-identifier hs-var">SurelyTop</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-97"></span><span>    </span><span class="annot"><span class="annottext">MaybeTop
+</span><a href="Data.Propagator.P2.html#SurelyBottom"><span class="hs-identifier hs-var">SurelyBottom</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-98"></span><span>    </span><span class="annot"><a href="Data.Propagator.P2.html#StillBottom"><span class="hs-identifier hs-type">StillBottom</span></a></span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span class="hs-cpp">
+
+#ifndef DEJAFU
+</span><span>
+</span><span id="line-102"></span><span class="hs-comment">-- | Freezes the value. Drops references to watchers.</span><span>
+</span><span id="line-103"></span><span class="annot"><a href="Data.Propagator.P2.html#freeze"><span class="hs-identifier hs-type">freeze</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">Ctxt</span><span> </span><span class="hs-identifier">P2_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">M</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-104"></span><span id="freeze"><span class="annot"><span class="annottext">freeze :: P2 -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#freeze"><span class="hs-identifier hs-var hs-var">freeze</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Propagator.P2.html#P2"><span class="hs-identifier hs-type">P2</span></a></span><span> </span><span id="local-6989586621679036734"><span class="annot"><span class="annottext">MVar MaybeTop
+</span><a href="#local-6989586621679036734"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop -&gt; IO MaybeTop
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">takeMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop
+</span><a href="#local-6989586621679036734"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">IO MaybeTop -&gt; (MaybeTop -&gt; IO ()) -&gt; IO ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-105"></span><span>    </span><span class="annot"><span class="annottext">MaybeTop
+</span><a href="Data.Propagator.P2.html#SurelyTop"><span class="hs-identifier hs-var">SurelyTop</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop -&gt; MaybeTop -&gt; IO ()
+forall a. MVar a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">putMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop
+</span><a href="#local-6989586621679036734"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">MaybeTop
+</span><a href="Data.Propagator.P2.html#SurelyTop"><span class="hs-identifier hs-var">SurelyTop</span></a></span><span>
+</span><span id="line-106"></span><span>    </span><span class="annot"><span class="annottext">MaybeTop
+</span><span class="hs-identifier">_</span></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop -&gt; MaybeTop -&gt; IO ()
+forall a. MVar a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">putMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar MaybeTop
+</span><a href="#local-6989586621679036734"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">MaybeTop
+</span><a href="Data.Propagator.P2.html#SurelyBottom"><span class="hs-identifier hs-var">SurelyBottom</span></a></span><span>
+</span><span id="line-107"></span><span>
+</span><span id="line-108"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.Propagator.Class.html#Propagator"><span class="hs-identifier hs-type">Propagator</span></a></span><span> </span><span class="hs-identifier">P2_</span><span> </span><span class="hs-identifier">Bool</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-109"></span><span>    </span><span id="local-6989586621679036727"><span class="annot"><span class="annottext">newProp :: IO P2
+</span><a href="Data.Propagator.Class.html#newProp"><span class="hs-identifier hs-var hs-var hs-var hs-var">newProp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO P2
+</span><a href="Data.Propagator.P2.html#newP2"><span class="hs-identifier hs-var">newP2</span></a></span><span>
+</span><span id="line-110"></span><span>    </span><span id="local-6989586621679036725"><span class="annot"><span class="annottext">newConstProp :: Bool -&gt; IO P2
+</span><a href="Data.Propagator.Class.html#newConstProp"><span class="hs-identifier hs-var hs-var hs-var hs-var">newConstProp</span></a></span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO P2
+</span><a href="Data.Propagator.P2.html#newP2"><span class="hs-identifier hs-var">newP2</span></a></span><span>
+</span><span id="line-111"></span><span>    </span><span class="annot"><a href="Data.Propagator.Class.html#newConstProp"><span class="hs-identifier hs-var">newConstProp</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO P2
+</span><a href="Data.Propagator.P2.html#newTopP2"><span class="hs-identifier hs-var">newTopP2</span></a></span><span>
+</span><span id="line-112"></span><span>    </span><span id="local-6989586621679036723"><span class="annot"><span class="annottext">freezeProp :: P2 -&gt; IO ()
+</span><a href="Data.Propagator.Class.html#freezeProp"><span class="hs-identifier hs-var hs-var hs-var hs-var">freezeProp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">P2 -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#freeze"><span class="hs-identifier hs-var">freeze</span></a></span><span>
+</span><span id="line-113"></span><span>    </span><span id="local-6989586621679036721"><span class="annot"><span class="annottext">readProp :: P2 -&gt; IO Bool
+</span><a href="Data.Propagator.Class.html#readProp"><span class="hs-identifier hs-var hs-var hs-var hs-var">readProp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">P2 -&gt; IO Bool
+</span><a href="Data.Propagator.P2.html#isTop"><span class="hs-identifier hs-var">isTop</span></a></span><span class="hs-cpp">
+#endif
+</span></pre></body></html>

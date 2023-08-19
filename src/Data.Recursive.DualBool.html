@@ -1,0 +1,273 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-comment">{- | The type @RDualBool@ is like 'Bool', but allows recursive definitions:
+
+&gt;&gt;&gt; :{
+  let x = RDB.true
+      y = x RDB.&amp;&amp; z
+      z = y RDB.|| RDB.false
+  in RDB.get x
+:}
+True
+
+
+This finds the greatest solution, i.e. prefers 'True' over 'False':
+
+&gt;&gt;&gt; :{
+  let x = x RDB.&amp;&amp; y
+      y = y RDB.&amp;&amp; x
+  in (RDB.get x, RDB.get y)
+:}
+(True,True)
+
+Use @RBool@ from &quot;Data.Recursive.Bool&quot; if you want the least solution.
+
+-}</span><span>
+</span><span id="line-26"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Data.Recursive.DualBool</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Recursive.Internal.html#RDualBool"><span class="hs-identifier">RDualBool</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Data.Recursive.DualBool.html"><span class="hs-identifier">Data.Recursive.DualBool</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html"><span class="hs-identifier">Data.Recursive.Internal</span></a></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Data.Propagator.Purify.html"><span class="hs-identifier">Data.Propagator.Purify</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Purify</span></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Propagator.P2.html"><span class="hs-identifier">Data.Propagator.P2</span></a></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-comment">-- $setup</span><span>
+</span><span id="line-33"></span><span class="hs-comment">-- &gt;&gt;&gt; :load Data.Recursive.Bool Data.Recursive.DualBool</span><span>
+</span><span id="line-34"></span><span class="hs-comment">-- &gt;&gt;&gt; :module - Data.Recursive.Bool Data.Recursive.DualBool</span><span>
+</span><span id="line-35"></span><span class="hs-comment">--</span><span>
+</span><span id="line-36"></span><span class="hs-comment">-- &gt;&gt;&gt; :set -XFlexibleInstances</span><span>
+</span><span id="line-37"></span><span class="hs-comment">-- &gt;&gt;&gt; import Test.QuickCheck</span><span>
+</span><span id="line-38"></span><span class="hs-comment">-- &gt;&gt;&gt; import qualified Data.Recursive.Bool as RB</span><span>
+</span><span id="line-39"></span><span class="hs-comment">-- &gt;&gt;&gt; instance Arbitrary RB.RBool where arbitrary = RB.mk &lt;$&gt; arbitrary</span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- &gt;&gt;&gt; instance Show RB.RBool where show = show . RB.get</span><span>
+</span><span id="line-41"></span><span class="hs-comment">--</span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- &gt;&gt;&gt; import qualified Data.Recursive.DualBool as RDB</span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- &gt;&gt;&gt; instance Arbitrary RDB.RDualBool where arbitrary = RDB.mk &lt;$&gt; arbitrary</span><span>
+</span><span id="line-44"></span><span class="hs-comment">-- &gt;&gt;&gt; instance Show RDB.RDualBool where show = show . RDB.get</span><span>
+</span><span id="line-45"></span><span>
+</span><span id="line-46"></span><span class="hs-comment">-- | Extracts the value of a 'RDualBool'</span><span>
+</span><span id="line-47"></span><span class="annot"><a href="Data.Recursive.DualBool.html#get"><span class="hs-identifier hs-type">get</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RDualBool"><span class="hs-identifier hs-type">RDualBool</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-48"></span><span id="get"><span class="annot"><span class="annottext">get :: RDualBool -&gt; Bool
+</span><a href="Data.Recursive.DualBool.html#get"><span class="hs-identifier hs-var hs-var">get</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Recursive.Internal.html#RDualBool"><span class="hs-identifier hs-type">RDualBool</span></a></span><span> </span><span id="local-6989586621679037786"><span class="annot"><span class="annottext">Purify P2
+</span><a href="#local-6989586621679037786"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">Prelude.not</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Purify P2 -&gt; Bool
+forall pa a. Propagator pa a =&gt; Purify pa -&gt; a
+</span><a href="Data.Propagator.Purify.html#get"><span class="hs-identifier hs-var">Purify.get</span></a></span><span> </span><span class="annot"><span class="annottext">Purify P2
+</span><a href="#local-6989586621679037786"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span class="hs-comment">-- | prop&gt; RDB.get (RDB.mk b) === b</span><span>
+</span><span id="line-51"></span><span class="annot"><a href="Data.Recursive.DualBool.html#mk"><span class="hs-identifier hs-type">mk</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RDualBool"><span class="hs-identifier hs-type">RDualBool</span></a></span><span>
+</span><span id="line-52"></span><span id="mk"><span class="annot"><span class="annottext">mk :: Bool -&gt; RDualBool
+</span><a href="Data.Recursive.DualBool.html#mk"><span class="hs-identifier hs-var hs-var">mk</span></a></span></span><span> </span><span id="local-6989586621679037782"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679037782"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenR RDualBool -&gt; RDualBool
+forall a. Coercible a (OpenR a) =&gt; OpenR a -&gt; a
+</span><a href="Data.Recursive.Internal.html#openR"><span class="hs-identifier hs-var">openR</span></a></span><span> </span><span class="annot"><span class="annottext">(OpenR RDualBool -&gt; RDualBool) -&gt; OpenR RDualBool -&gt; RDualBool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Purify P2
+forall p a. Propagator p a =&gt; a -&gt; Purify p
+</span><a href="Data.Propagator.Purify.html#mk"><span class="hs-identifier hs-var">Purify.mk</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">Prelude.not</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679037782"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- | prop&gt; RDB.get RDB.true == True</span><span>
+</span><span id="line-55"></span><span class="annot"><a href="Data.Recursive.DualBool.html#true"><span class="hs-identifier hs-type">true</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RDualBool"><span class="hs-identifier hs-type">RDualBool</span></a></span><span>
+</span><span id="line-56"></span><span id="true"><span class="annot"><span class="annottext">true :: RDualBool
+</span><a href="Data.Recursive.DualBool.html#true"><span class="hs-identifier hs-var hs-var">true</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenR RDualBool -&gt; RDualBool
+forall a. Coercible a (OpenR a) =&gt; OpenR a -&gt; a
+</span><a href="Data.Recursive.Internal.html#openR"><span class="hs-identifier hs-var">openR</span></a></span><span> </span><span class="annot"><span class="annottext">(OpenR RDualBool -&gt; RDualBool) -&gt; OpenR RDualBool -&gt; RDualBool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Purify P2
+forall p a. Propagator p a =&gt; a -&gt; Purify p
+</span><a href="Data.Propagator.Purify.html#mk"><span class="hs-identifier hs-var">Purify.mk</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span class="hs-comment">-- | prop&gt; RDB.get RDB.false == False</span><span>
+</span><span id="line-59"></span><span class="annot"><a href="Data.Recursive.DualBool.html#false"><span class="hs-identifier hs-type">false</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RDualBool"><span class="hs-identifier hs-type">RDualBool</span></a></span><span>
+</span><span id="line-60"></span><span id="false"><span class="annot"><span class="annottext">false :: RDualBool
+</span><a href="Data.Recursive.DualBool.html#false"><span class="hs-identifier hs-var hs-var">false</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenR RDualBool -&gt; RDualBool
+forall a. Coercible a (OpenR a) =&gt; OpenR a -&gt; a
+</span><a href="Data.Recursive.Internal.html#openR"><span class="hs-identifier hs-var">openR</span></a></span><span> </span><span class="annot"><span class="annottext">(OpenR RDualBool -&gt; RDualBool) -&gt; OpenR RDualBool -&gt; RDualBool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Purify P2
+forall p a. Propagator p a =&gt; a -&gt; Purify p
+</span><a href="Data.Propagator.Purify.html#mk"><span class="hs-identifier hs-var">Purify.mk</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span class="hs-comment">-- | prop&gt; RDB.get (r1 RDB.&amp;&amp; r2) === (RDB.get r1 &amp;&amp; RDB.get r2)</span><span>
+</span><span id="line-63"></span><span class="annot"><a href="Data.Recursive.DualBool.html#%26%26"><span class="hs-operator hs-type">(&amp;&amp;)</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RDualBool"><span class="hs-identifier hs-type">RDualBool</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RDualBool"><span class="hs-identifier hs-type">RDualBool</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RDualBool"><span class="hs-identifier hs-type">RDualBool</span></a></span><span>
+</span><span id="line-64"></span><span id="%26%26"><span class="annot"><span class="annottext">&amp;&amp; :: RDualBool -&gt; RDualBool -&gt; RDualBool
+</span><a href="Data.Recursive.DualBool.html#%26%26"><span class="hs-operator hs-var hs-var">(&amp;&amp;)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenR (RDualBool -&gt; RDualBool -&gt; RDualBool)
+-&gt; RDualBool -&gt; RDualBool -&gt; RDualBool
+forall a. Coercible a (OpenR a) =&gt; OpenR a -&gt; a
+</span><a href="Data.Recursive.Internal.html#openR"><span class="hs-identifier hs-var">openR</span></a></span><span> </span><span class="annot"><span class="annottext">(OpenR (RDualBool -&gt; RDualBool -&gt; RDualBool)
+ -&gt; RDualBool -&gt; RDualBool -&gt; RDualBool)
+-&gt; OpenR (RDualBool -&gt; RDualBool -&gt; RDualBool)
+-&gt; RDualBool
+-&gt; RDualBool
+-&gt; RDualBool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(P2 -&gt; P2 -&gt; P2 -&gt; IO ()) -&gt; Purify P2 -&gt; Purify P2 -&gt; Purify P2
+forall pa a pb b pc c.
+(Propagator pa a, Propagator pb b, Propagator pc c) =&gt;
+(pa -&gt; pb -&gt; pc -&gt; IO ()) -&gt; Purify pa -&gt; Purify pb -&gt; Purify pc
+</span><a href="Data.Propagator.Purify.html#def2"><span class="hs-identifier hs-var">Purify.def2</span></a></span><span> </span><span class="annot"><span class="annottext">((P2 -&gt; P2 -&gt; P2 -&gt; IO ()) -&gt; Purify P2 -&gt; Purify P2 -&gt; Purify P2)
+-&gt; (P2 -&gt; P2 -&gt; P2 -&gt; IO ()) -&gt; Purify P2 -&gt; Purify P2 -&gt; Purify P2
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679037775"><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037775"><span class="hs-identifier hs-var">p1</span></a></span></span><span> </span><span id="local-6989586621679037774"><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037774"><span class="hs-identifier hs-var">p2</span></a></span></span><span> </span><span id="local-6989586621679037773"><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037773"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-65"></span><span>    </span><span class="annot"><span class="annottext">P2 -&gt; IO () -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#whenTop"><span class="hs-identifier hs-var">whenTop</span></a></span><span> </span><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037775"><span class="hs-identifier hs-var">p1</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">P2 -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#setTop"><span class="hs-identifier hs-var">setTop</span></a></span><span> </span><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037773"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-66"></span><span>    </span><span class="annot"><span class="annottext">P2 -&gt; IO () -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#whenTop"><span class="hs-identifier hs-var">whenTop</span></a></span><span> </span><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037774"><span class="hs-identifier hs-var">p2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">P2 -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#setTop"><span class="hs-identifier hs-var">setTop</span></a></span><span> </span><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037773"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-67"></span><span>
+</span><span id="line-68"></span><span class="hs-comment">-- | prop&gt; RDB.get (r1 RDB.|| r2) === (RDB.get r1 || RDB.get r2)</span><span>
+</span><span id="line-69"></span><span class="annot"><a href="Data.Recursive.DualBool.html#%7C%7C"><span class="hs-operator hs-type">(||)</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RDualBool"><span class="hs-identifier hs-type">RDualBool</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RDualBool"><span class="hs-identifier hs-type">RDualBool</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RDualBool"><span class="hs-identifier hs-type">RDualBool</span></a></span><span>
+</span><span id="line-70"></span><span id="%7C%7C"><span class="annot"><span class="annottext">|| :: RDualBool -&gt; RDualBool -&gt; RDualBool
+</span><a href="Data.Recursive.DualBool.html#%7C%7C"><span class="hs-operator hs-var hs-var">(||)</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenR (RDualBool -&gt; RDualBool -&gt; RDualBool)
+-&gt; RDualBool -&gt; RDualBool -&gt; RDualBool
+forall a. Coercible a (OpenR a) =&gt; OpenR a -&gt; a
+</span><a href="Data.Recursive.Internal.html#openR"><span class="hs-identifier hs-var">openR</span></a></span><span> </span><span class="annot"><span class="annottext">(OpenR (RDualBool -&gt; RDualBool -&gt; RDualBool)
+ -&gt; RDualBool -&gt; RDualBool -&gt; RDualBool)
+-&gt; OpenR (RDualBool -&gt; RDualBool -&gt; RDualBool)
+-&gt; RDualBool
+-&gt; RDualBool
+-&gt; RDualBool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(P2 -&gt; P2 -&gt; P2 -&gt; IO ()) -&gt; Purify P2 -&gt; Purify P2 -&gt; Purify P2
+forall pa a pb b pc c.
+(Propagator pa a, Propagator pb b, Propagator pc c) =&gt;
+(pa -&gt; pb -&gt; pc -&gt; IO ()) -&gt; Purify pa -&gt; Purify pb -&gt; Purify pc
+</span><a href="Data.Propagator.Purify.html#def2"><span class="hs-identifier hs-var">Purify.def2</span></a></span><span> </span><span class="annot"><span class="annottext">((P2 -&gt; P2 -&gt; P2 -&gt; IO ()) -&gt; Purify P2 -&gt; Purify P2 -&gt; Purify P2)
+-&gt; (P2 -&gt; P2 -&gt; P2 -&gt; IO ()) -&gt; Purify P2 -&gt; Purify P2 -&gt; Purify P2
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679037769"><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037769"><span class="hs-identifier hs-var">p1</span></a></span></span><span> </span><span id="local-6989586621679037768"><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037768"><span class="hs-identifier hs-var">p2</span></a></span></span><span> </span><span id="local-6989586621679037767"><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037767"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-71"></span><span>    </span><span class="annot"><span class="annottext">P2 -&gt; IO () -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#whenTop"><span class="hs-identifier hs-var">whenTop</span></a></span><span> </span><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037769"><span class="hs-identifier hs-var">p1</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">P2 -&gt; IO () -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#whenTop"><span class="hs-identifier hs-var">whenTop</span></a></span><span> </span><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037768"><span class="hs-identifier hs-var">p2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">P2 -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#setTop"><span class="hs-identifier hs-var">setTop</span></a></span><span> </span><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037767"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span class="hs-comment">-- | prop&gt; RDB.get (RDB.and rs) === and (map RDB.get rs)</span><span>
+</span><span id="line-74"></span><span class="annot"><a href="Data.Recursive.DualBool.html#and"><span class="hs-identifier hs-type">and</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Data.Recursive.Internal.html#RDualBool"><span class="hs-identifier hs-type">RDualBool</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RDualBool"><span class="hs-identifier hs-type">RDualBool</span></a></span><span>
+</span><span id="line-75"></span><span id="and"><span class="annot"><span class="annottext">and :: [RDualBool] -&gt; RDualBool
+</span><a href="Data.Recursive.DualBool.html#and"><span class="hs-identifier hs-var hs-var">and</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenR ([RDualBool] -&gt; RDualBool) -&gt; [RDualBool] -&gt; RDualBool
+forall a. Coercible a (OpenR a) =&gt; OpenR a -&gt; a
+</span><a href="Data.Recursive.Internal.html#openR"><span class="hs-identifier hs-var">openR</span></a></span><span> </span><span class="annot"><span class="annottext">(OpenR ([RDualBool] -&gt; RDualBool) -&gt; [RDualBool] -&gt; RDualBool)
+-&gt; OpenR ([RDualBool] -&gt; RDualBool) -&gt; [RDualBool] -&gt; RDualBool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">([P2] -&gt; P2 -&gt; IO ()) -&gt; [Purify P2] -&gt; Purify P2
+forall pa a pb b.
+(Propagator pa a, Propagator pb b) =&gt;
+([pa] -&gt; pb -&gt; IO ()) -&gt; [Purify pa] -&gt; Purify pb
+</span><a href="Data.Propagator.Purify.html#defList"><span class="hs-identifier hs-var">Purify.defList</span></a></span><span> </span><span class="annot"><span class="annottext">(([P2] -&gt; P2 -&gt; IO ()) -&gt; [Purify P2] -&gt; Purify P2)
+-&gt; ([P2] -&gt; P2 -&gt; IO ()) -&gt; [Purify P2] -&gt; Purify P2
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679037764"><span class="annot"><span class="annottext">[P2]
+</span><a href="#local-6989586621679037764"><span class="hs-identifier hs-var">ps</span></a></span></span><span> </span><span id="local-6989586621679037763"><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037763"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-76"></span><span>    </span><span class="annot"><span class="annottext">forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Foldable t, Monad m) =&gt;
+(a -&gt; m b) -&gt; t a -&gt; m ()
+</span><span class="hs-identifier hs-var">mapM_</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">P2 -&gt; P2 -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#implies"><span class="hs-operator hs-var">`implies`</span></a></span><span> </span><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037763"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[P2]
+</span><a href="#local-6989586621679037764"><span class="hs-identifier hs-var">ps</span></a></span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="hs-comment">-- | prop&gt; RDB.get (RDB.or rs) === or (map RDB.get rs)</span><span>
+</span><span id="line-79"></span><span class="annot"><a href="Data.Recursive.DualBool.html#or"><span class="hs-identifier hs-type">or</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Data.Recursive.Internal.html#RDualBool"><span class="hs-identifier hs-type">RDualBool</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RDualBool"><span class="hs-identifier hs-type">RDualBool</span></a></span><span>
+</span><span id="line-80"></span><span id="or"><span class="annot"><span class="annottext">or :: [RDualBool] -&gt; RDualBool
+</span><a href="Data.Recursive.DualBool.html#or"><span class="hs-identifier hs-var hs-var">or</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenR ([RDualBool] -&gt; RDualBool) -&gt; [RDualBool] -&gt; RDualBool
+forall a. Coercible a (OpenR a) =&gt; OpenR a -&gt; a
+</span><a href="Data.Recursive.Internal.html#openR"><span class="hs-identifier hs-var">openR</span></a></span><span> </span><span class="annot"><span class="annottext">(OpenR ([RDualBool] -&gt; RDualBool) -&gt; [RDualBool] -&gt; RDualBool)
+-&gt; OpenR ([RDualBool] -&gt; RDualBool) -&gt; [RDualBool] -&gt; RDualBool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">([P2] -&gt; P2 -&gt; IO ()) -&gt; [Purify P2] -&gt; Purify P2
+forall pa a pb b.
+(Propagator pa a, Propagator pb b) =&gt;
+([pa] -&gt; pb -&gt; IO ()) -&gt; [Purify pa] -&gt; Purify pb
+</span><a href="Data.Propagator.Purify.html#defList"><span class="hs-identifier hs-var">Purify.defList</span></a></span><span> </span><span class="annot"><span class="annottext">[P2] -&gt; P2 -&gt; IO ()
+</span><a href="#local-6989586621679037759"><span class="hs-identifier hs-var">go</span></a></span><span>
+</span><span id="line-81"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-82"></span><span>    </span><span id="local-6989586621679037759"><span class="annot"><span class="annottext">go :: [P2] -&gt; P2 -&gt; IO ()
+</span><a href="#local-6989586621679037759"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span id="local-6989586621679037758"><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037758"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">P2 -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#setTop"><span class="hs-identifier hs-var">setTop</span></a></span><span> </span><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037758"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-83"></span><span>    </span><span class="annot"><a href="#local-6989586621679037759"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679037757"><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037757"><span class="hs-identifier hs-var">p'</span></a></span></span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span id="local-6989586621679037756"><span class="annot"><span class="annottext">[P2]
+</span><a href="#local-6989586621679037756"><span class="hs-identifier hs-var">ps</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679037755"><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037755"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">P2 -&gt; IO () -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#whenTop"><span class="hs-identifier hs-var">whenTop</span></a></span><span> </span><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037757"><span class="hs-identifier hs-var">p'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[P2] -&gt; P2 -&gt; IO ()
+</span><a href="#local-6989586621679037759"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">[P2]
+</span><a href="#local-6989586621679037756"><span class="hs-identifier hs-var">ps</span></a></span><span> </span><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037755"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-84"></span><span>
+</span><span id="line-85"></span><span class="hs-comment">-- | prop&gt; RDB.get (RDB.not r1) === not (RB.get r1)</span><span>
+</span><span id="line-86"></span><span class="annot"><a href="Data.Recursive.DualBool.html#not"><span class="hs-identifier hs-type">not</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RBool"><span class="hs-identifier hs-type">RBool</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RDualBool"><span class="hs-identifier hs-type">RDualBool</span></a></span><span>
+</span><span id="line-87"></span><span id="not"><span class="annot"><span class="annottext">not :: RBool -&gt; RDualBool
+</span><a href="Data.Recursive.DualBool.html#not"><span class="hs-identifier hs-var hs-var">not</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenR (RBool -&gt; RDualBool) -&gt; RBool -&gt; RDualBool
+forall a. Coercible a (OpenR a) =&gt; OpenR a -&gt; a
+</span><a href="Data.Recursive.Internal.html#openR"><span class="hs-identifier hs-var">openR</span></a></span><span> </span><span class="annot"><span class="annottext">(OpenR (RBool -&gt; RDualBool) -&gt; RBool -&gt; RDualBool)
+-&gt; OpenR (RBool -&gt; RDualBool) -&gt; RBool -&gt; RDualBool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(P2 -&gt; P2 -&gt; IO ()) -&gt; Purify P2 -&gt; Purify P2
+forall pa a pb b.
+(Propagator pa a, Propagator pb b) =&gt;
+(pa -&gt; pb -&gt; IO ()) -&gt; Purify pa -&gt; Purify pb
+</span><a href="Data.Propagator.Purify.html#def1"><span class="hs-identifier hs-var">Purify.def1</span></a></span><span> </span><span class="annot"><span class="annottext">((P2 -&gt; P2 -&gt; IO ()) -&gt; Purify P2 -&gt; Purify P2)
+-&gt; (P2 -&gt; P2 -&gt; IO ()) -&gt; Purify P2 -&gt; Purify P2
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679037752"><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037752"><span class="hs-identifier hs-var">p1</span></a></span></span><span> </span><span id="local-6989586621679037751"><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037751"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-88"></span><span>    </span><span class="annot"><span class="annottext">P2 -&gt; P2 -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#implies"><span class="hs-identifier hs-var">implies</span></a></span><span> </span><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037752"><span class="hs-identifier hs-var">p1</span></a></span><span> </span><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037751"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-89"></span><span>
+</span><span id="line-90"></span><span class="hs-comment">-- | The identity function. This is useful when tying the knot, to avoid a loop that bottoms out:</span><span>
+</span><span id="line-91"></span><span class="hs-comment">--</span><span>
+</span><span id="line-92"></span><span class="hs-comment">-- &gt; let x = x in RDB.get x</span><span>
+</span><span id="line-93"></span><span class="hs-comment">--</span><span>
+</span><span id="line-94"></span><span class="hs-comment">-- will not work, but</span><span>
+</span><span id="line-95"></span><span class="hs-comment">--</span><span>
+</span><span id="line-96"></span><span class="hs-comment">-- &gt;&gt;&gt; let x = RDB.id x in RDB.get x</span><span>
+</span><span id="line-97"></span><span class="hs-comment">-- True</span><span>
+</span><span id="line-98"></span><span class="hs-comment">--</span><span>
+</span><span id="line-99"></span><span class="hs-comment">-- does.</span><span>
+</span><span id="line-100"></span><span class="hs-comment">--</span><span>
+</span><span id="line-101"></span><span class="hs-comment">-- | prop&gt; RDB.get (RDB.id r) === RDB.get r</span><span>
+</span><span id="line-102"></span><span class="annot"><a href="Data.Recursive.DualBool.html#id"><span class="hs-identifier hs-type">id</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RDualBool"><span class="hs-identifier hs-type">RDualBool</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RDualBool"><span class="hs-identifier hs-type">RDualBool</span></a></span><span>
+</span><span id="line-103"></span><span id="id"><span class="annot"><span class="annottext">id :: RDualBool -&gt; RDualBool
+</span><a href="Data.Recursive.DualBool.html#id"><span class="hs-identifier hs-var hs-var">id</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenR (RDualBool -&gt; RDualBool) -&gt; RDualBool -&gt; RDualBool
+forall a. Coercible a (OpenR a) =&gt; OpenR a -&gt; a
+</span><a href="Data.Recursive.Internal.html#openR"><span class="hs-identifier hs-var">openR</span></a></span><span> </span><span class="annot"><span class="annottext">(OpenR (RDualBool -&gt; RDualBool) -&gt; RDualBool -&gt; RDualBool)
+-&gt; OpenR (RDualBool -&gt; RDualBool) -&gt; RDualBool -&gt; RDualBool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(P2 -&gt; P2 -&gt; IO ()) -&gt; Purify P2 -&gt; Purify P2
+forall pa a pb b.
+(Propagator pa a, Propagator pb b) =&gt;
+(pa -&gt; pb -&gt; IO ()) -&gt; Purify pa -&gt; Purify pb
+</span><a href="Data.Propagator.Purify.html#def1"><span class="hs-identifier hs-var">Purify.def1</span></a></span><span> </span><span class="annot"><span class="annottext">((P2 -&gt; P2 -&gt; IO ()) -&gt; Purify P2 -&gt; Purify P2)
+-&gt; (P2 -&gt; P2 -&gt; IO ()) -&gt; Purify P2 -&gt; Purify P2
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679037749"><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037749"><span class="hs-identifier hs-var">p1</span></a></span></span><span> </span><span id="local-6989586621679037748"><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037748"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-104"></span><span>    </span><span class="annot"><span class="annottext">P2 -&gt; P2 -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#implies"><span class="hs-identifier hs-var">implies</span></a></span><span> </span><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037749"><span class="hs-identifier hs-var">p1</span></a></span><span> </span><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037748"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-105"></span></pre></body></html>

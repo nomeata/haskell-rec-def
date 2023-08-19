@@ -1,0 +1,550 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-2"></span><span class="hs-comment">{- | The type @RS.RSet a@ is like 'S.Set' @a@, but allows recursive definitions:
+
+&gt;&gt;&gt; :{
+  let s1 = RS.insert 23 s2
+      s2 = RS.insert 42 s1
+  in RS.get s1
+ :}
+fromList [23,42]
+
+-}</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Data.Recursive.Set</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier">RSet</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Data.Recursive.Set.html"><span class="hs-identifier">Data.Recursive.Set</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Set</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">S</span></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">when</span></span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html"><span class="hs-identifier">Data.Recursive.Internal</span></a></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Data.Propagator.Purify.html"><span class="hs-identifier">Data.Propagator.Purify</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Purify</span></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Propagator.Naive.html"><span class="hs-identifier">Data.Propagator.Naive</span></a></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Propagator.P2.html"><span class="hs-identifier">Data.Propagator.P2</span></a></span><span>
+</span><span id="line-21"></span><span>
+</span><span id="line-22"></span><span class="hs-comment">-- $setup</span><span>
+</span><span id="line-23"></span><span class="hs-comment">-- &gt;&gt;&gt; :load Data.Recursive.Set Data.Recursive.Bool Data.Recursive.DualBool</span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- &gt;&gt;&gt; :module - Data.Recursive.Set Data.Recursive.Bool Data.Recursive.DualBool</span><span>
+</span><span id="line-25"></span><span class="hs-comment">-- &gt;&gt;&gt; import qualified Data.Recursive.Set as RS</span><span>
+</span><span id="line-26"></span><span class="hs-comment">-- &gt;&gt;&gt; import qualified Data.Recursive.Bool as RB</span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- &gt;&gt;&gt; import qualified Data.Recursive.DualBool as RDB</span><span>
+</span><span id="line-28"></span><span class="hs-comment">-- &gt;&gt;&gt; import qualified Data.Set as S</span><span>
+</span><span id="line-29"></span><span class="hs-comment">-- &gt;&gt;&gt; :set -XFlexibleInstances</span><span>
+</span><span id="line-30"></span><span class="hs-comment">-- &gt;&gt;&gt; :set -XScopedTypeVariables</span><span>
+</span><span id="line-31"></span><span class="hs-comment">-- &gt;&gt;&gt; import Test.QuickCheck</span><span>
+</span><span id="line-32"></span><span class="hs-comment">-- &gt;&gt;&gt; instance (Ord a, Arbitrary a) =&gt; Arbitrary (RS.RSet a) where arbitrary = RS.mk &lt;$&gt; arbitrary</span><span>
+</span><span id="line-33"></span><span class="hs-comment">-- &gt;&gt;&gt; instance (Ord a, Show a) =&gt; Show (RS.RSet a) where show = show . RS.get</span><span>
+</span><span id="line-34"></span><span class="hs-comment">-- &gt;&gt;&gt; instance Arbitrary RB.RBool where arbitrary = RB.mk &lt;$&gt; arbitrary</span><span>
+</span><span id="line-35"></span><span class="hs-comment">-- &gt;&gt;&gt; instance Show RB.RBool where show = show . RB.get</span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="hs-comment">-- | Extracts the value of a 'RSet a'</span><span>
+</span><span id="line-38"></span><span id="local-6989586621679037371"><span class="annot"><a href="Data.Recursive.Set.html#get"><span class="hs-identifier hs-type">get</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037371"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">S.Set</span></span><span> </span><span class="annot"><a href="#local-6989586621679037371"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-39"></span><span id="get"><span class="annot"><span class="annottext">get :: forall a. RSet a -&gt; Set a
+</span><a href="Data.Recursive.Set.html#get"><span class="hs-identifier hs-var hs-var">get</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span id="local-6989586621679037274"><span class="annot"><span class="annottext">Purify (Prop (Set a))
+</span><a href="#local-6989586621679037274"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Purify (Prop (Set a)) -&gt; Set a
+forall pa a. Propagator pa a =&gt; Purify pa -&gt; a
+</span><a href="Data.Propagator.Purify.html#get"><span class="hs-identifier hs-var">Purify.get</span></a></span><span> </span><span class="annot"><span class="annottext">Purify (Prop (Set a))
+</span><a href="#local-6989586621679037274"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-comment">-- | prop&gt; RB.get (RB.mk s) === s</span><span>
+</span><span id="line-42"></span><span id="local-6989586621679037359"><span class="annot"><a href="Data.Recursive.Set.html#mk"><span class="hs-identifier hs-type">mk</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">S.Set</span></span><span> </span><span class="annot"><a href="#local-6989586621679037359"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037359"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-43"></span><span id="mk"><span class="annot"><span class="annottext">mk :: forall a. Set a -&gt; RSet a
+</span><a href="Data.Recursive.Set.html#mk"><span class="hs-identifier hs-var hs-var">mk</span></a></span></span><span> </span><span id="local-6989586621679037269"><span class="annot"><span class="annottext">Set a
+</span><a href="#local-6989586621679037269"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Purify (Prop (Set a)) -&gt; RSet a
+forall a. Purify (Prop (Set a)) -&gt; RSet a
+</span><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-var">RSet</span></a></span><span> </span><span class="annot"><span class="annottext">(Purify (Prop (Set a)) -&gt; RSet a)
+-&gt; Purify (Prop (Set a)) -&gt; RSet a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Set a -&gt; Purify (Prop (Set a))
+forall p a. Propagator p a =&gt; a -&gt; Purify p
+</span><a href="Data.Propagator.Purify.html#mk"><span class="hs-identifier hs-var">Purify.mk</span></a></span><span> </span><span class="annot"><span class="annottext">Set a
+</span><a href="#local-6989586621679037269"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- | prop&gt; RS.get RS.empty === S.empty</span><span>
+</span><span id="line-46"></span><span id="local-6989586621679037351"><span class="annot"><a href="Data.Recursive.Set.html#empty"><span class="hs-identifier hs-type">empty</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037351"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-47"></span><span id="empty"><span class="annot"><span class="annottext">empty :: forall a. RSet a
+</span><a href="Data.Recursive.Set.html#empty"><span class="hs-identifier hs-var hs-var">empty</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Purify (Prop (Set a)) -&gt; RSet a
+forall a. Purify (Prop (Set a)) -&gt; RSet a
+</span><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-var">RSet</span></a></span><span> </span><span class="annot"><span class="annottext">(Purify (Prop (Set a)) -&gt; RSet a)
+-&gt; Purify (Prop (Set a)) -&gt; RSet a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Set a -&gt; Purify (Prop (Set a))
+forall p a. Propagator p a =&gt; a -&gt; Purify p
+</span><a href="Data.Propagator.Purify.html#mk"><span class="hs-identifier hs-var">Purify.mk</span></a></span><span> </span><span class="annot"><span class="annottext">Set a
+forall a. Set a
+</span><span class="hs-identifier hs-var">S.empty</span></span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span class="hs-comment">-- | prop&gt; RS.get (RS.singleton x) === S.singleton x</span><span>
+</span><span id="line-50"></span><span id="local-6989586621679037348"><span class="annot"><a href="Data.Recursive.Set.html#singleton"><span class="hs-identifier hs-type">singleton</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679037348"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037348"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-51"></span><span id="singleton"><span class="annot"><span class="annottext">singleton :: forall a. a -&gt; RSet a
+</span><a href="Data.Recursive.Set.html#singleton"><span class="hs-identifier hs-var hs-var">singleton</span></a></span></span><span> </span><span id="local-6989586621679037260"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679037260"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Purify (Prop (Set a)) -&gt; RSet a
+forall a. Purify (Prop (Set a)) -&gt; RSet a
+</span><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-var">RSet</span></a></span><span> </span><span class="annot"><span class="annottext">(Purify (Prop (Set a)) -&gt; RSet a)
+-&gt; Purify (Prop (Set a)) -&gt; RSet a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Set a -&gt; Purify (Prop (Set a))
+forall p a. Propagator p a =&gt; a -&gt; Purify p
+</span><a href="Data.Propagator.Purify.html#mk"><span class="hs-identifier hs-var">Purify.mk</span></a></span><span> </span><span class="annot"><span class="annottext">(Set a -&gt; Purify (Prop (Set a))) -&gt; Set a -&gt; Purify (Prop (Set a))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Set a
+forall a. a -&gt; Set a
+</span><span class="hs-identifier hs-var">S.singleton</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679037260"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-comment">-- | prop&gt; RS.get (RS.insert n r1) === S.insert n (RS.get r1)</span><span>
+</span><span id="line-54"></span><span id="local-6989586621679037345"><span class="annot"><a href="Data.Recursive.Set.html#insert"><span class="hs-identifier hs-type">insert</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ord</span></span><span> </span><span class="annot"><a href="#local-6989586621679037345"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679037345"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037345"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037345"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-55"></span><span id="insert"><span class="annot"><span class="annottext">insert :: forall a. Ord a =&gt; a -&gt; RSet a -&gt; RSet a
+</span><a href="Data.Recursive.Set.html#insert"><span class="hs-identifier hs-var hs-var">insert</span></a></span></span><span> </span><span id="local-6989586621679037248"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679037248"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenR (RSet a -&gt; RSet a) -&gt; RSet a -&gt; RSet a
+forall a. Coercible a (OpenR a) =&gt; OpenR a -&gt; a
+</span><a href="Data.Recursive.Internal.html#openR"><span class="hs-identifier hs-var">openR</span></a></span><span> </span><span class="annot"><span class="annottext">(OpenR (RSet a -&gt; RSet a) -&gt; RSet a -&gt; RSet a)
+-&gt; OpenR (RSet a -&gt; RSet a) -&gt; RSet a -&gt; RSet a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+-&gt; Purify (Prop (Set a)) -&gt; Purify (Prop (Set a))
+forall pa a pb b.
+(Propagator pa a, Propagator pb b) =&gt;
+(pa -&gt; pb -&gt; IO ()) -&gt; Purify pa -&gt; Purify pb
+</span><a href="Data.Propagator.Purify.html#def1"><span class="hs-identifier hs-var">Purify.def1</span></a></span><span> </span><span class="annot"><span class="annottext">((Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+ -&gt; Purify (Prop (Set a)) -&gt; Purify (Prop (Set a)))
+-&gt; (Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+-&gt; Purify (Prop (Set a))
+-&gt; Purify (Prop (Set a))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Set a -&gt; Set a) -&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; IO ()
+forall b a. POrder b =&gt; (a -&gt; b) -&gt; Prop a -&gt; Prop b -&gt; IO ()
+</span><a href="Data.Propagator.Naive.html#lift1"><span class="hs-identifier hs-var">lift1</span></a></span><span> </span><span class="annot"><span class="annottext">((Set a -&gt; Set a) -&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+-&gt; (Set a -&gt; Set a) -&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Set a -&gt; Set a
+forall a. Ord a =&gt; a -&gt; Set a -&gt; Set a
+</span><span class="hs-identifier hs-var">S.insert</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679037248"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-comment">-- | prop&gt; RS.get (RS.delete n r1) === S.delete n (RS.get r1)</span><span>
+</span><span id="line-58"></span><span id="local-6989586621679037243"><span class="annot"><a href="Data.Recursive.Set.html#delete"><span class="hs-identifier hs-type">delete</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ord</span></span><span> </span><span class="annot"><a href="#local-6989586621679037243"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679037243"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037243"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037243"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-59"></span><span id="delete"><span class="annot"><span class="annottext">delete :: forall a. Ord a =&gt; a -&gt; RSet a -&gt; RSet a
+</span><a href="Data.Recursive.Set.html#delete"><span class="hs-identifier hs-var hs-var">delete</span></a></span></span><span> </span><span id="local-6989586621679037233"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679037233"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenR (RSet a -&gt; RSet a) -&gt; RSet a -&gt; RSet a
+forall a. Coercible a (OpenR a) =&gt; OpenR a -&gt; a
+</span><a href="Data.Recursive.Internal.html#openR"><span class="hs-identifier hs-var">openR</span></a></span><span> </span><span class="annot"><span class="annottext">(OpenR (RSet a -&gt; RSet a) -&gt; RSet a -&gt; RSet a)
+-&gt; OpenR (RSet a -&gt; RSet a) -&gt; RSet a -&gt; RSet a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+-&gt; Purify (Prop (Set a)) -&gt; Purify (Prop (Set a))
+forall pa a pb b.
+(Propagator pa a, Propagator pb b) =&gt;
+(pa -&gt; pb -&gt; IO ()) -&gt; Purify pa -&gt; Purify pb
+</span><a href="Data.Propagator.Purify.html#def1"><span class="hs-identifier hs-var">Purify.def1</span></a></span><span> </span><span class="annot"><span class="annottext">((Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+ -&gt; Purify (Prop (Set a)) -&gt; Purify (Prop (Set a)))
+-&gt; (Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+-&gt; Purify (Prop (Set a))
+-&gt; Purify (Prop (Set a))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Set a -&gt; Set a) -&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; IO ()
+forall b a. POrder b =&gt; (a -&gt; b) -&gt; Prop a -&gt; Prop b -&gt; IO ()
+</span><a href="Data.Propagator.Naive.html#lift1"><span class="hs-identifier hs-var">lift1</span></a></span><span> </span><span class="annot"><span class="annottext">((Set a -&gt; Set a) -&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+-&gt; (Set a -&gt; Set a) -&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Set a -&gt; Set a
+forall a. Ord a =&gt; a -&gt; Set a -&gt; Set a
+</span><span class="hs-identifier hs-var">S.delete</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679037233"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span class="hs-comment">-- | prop&gt; \(Fun _ p) -&gt; RS.get (RS.filter p r1) === S.filter p (RS.get r1)</span><span>
+</span><span id="line-62"></span><span id="local-6989586621679037331"><span class="annot"><a href="Data.Recursive.Set.html#filter"><span class="hs-identifier hs-type">filter</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ord</span></span><span> </span><span class="annot"><a href="#local-6989586621679037331"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679037331"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037331"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037331"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-63"></span><span id="filter"><span class="annot"><span class="annottext">filter :: forall a. Ord a =&gt; (a -&gt; Bool) -&gt; RSet a -&gt; RSet a
+</span><a href="Data.Recursive.Set.html#filter"><span class="hs-identifier hs-var hs-var">filter</span></a></span></span><span> </span><span id="local-6989586621679037223"><span class="annot"><span class="annottext">a -&gt; Bool
+</span><a href="#local-6989586621679037223"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenR (RSet a -&gt; RSet a) -&gt; RSet a -&gt; RSet a
+forall a. Coercible a (OpenR a) =&gt; OpenR a -&gt; a
+</span><a href="Data.Recursive.Internal.html#openR"><span class="hs-identifier hs-var">openR</span></a></span><span> </span><span class="annot"><span class="annottext">(OpenR (RSet a -&gt; RSet a) -&gt; RSet a -&gt; RSet a)
+-&gt; OpenR (RSet a -&gt; RSet a) -&gt; RSet a -&gt; RSet a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+-&gt; Purify (Prop (Set a)) -&gt; Purify (Prop (Set a))
+forall pa a pb b.
+(Propagator pa a, Propagator pb b) =&gt;
+(pa -&gt; pb -&gt; IO ()) -&gt; Purify pa -&gt; Purify pb
+</span><a href="Data.Propagator.Purify.html#def1"><span class="hs-identifier hs-var">Purify.def1</span></a></span><span> </span><span class="annot"><span class="annottext">((Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+ -&gt; Purify (Prop (Set a)) -&gt; Purify (Prop (Set a)))
+-&gt; (Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+-&gt; Purify (Prop (Set a))
+-&gt; Purify (Prop (Set a))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Set a -&gt; Set a) -&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; IO ()
+forall b a. POrder b =&gt; (a -&gt; b) -&gt; Prop a -&gt; Prop b -&gt; IO ()
+</span><a href="Data.Propagator.Naive.html#lift1"><span class="hs-identifier hs-var">lift1</span></a></span><span> </span><span class="annot"><span class="annottext">((Set a -&gt; Set a) -&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+-&gt; (Set a -&gt; Set a) -&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; Bool) -&gt; Set a -&gt; Set a
+forall a. (a -&gt; Bool) -&gt; Set a -&gt; Set a
+</span><span class="hs-identifier hs-var">S.filter</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Bool
+</span><a href="#local-6989586621679037223"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span class="hs-comment">-- | prop&gt; RS.get (RS.union r1 r2) === S.union (RS.get r1) (RS.get r2)</span><span>
+</span><span id="line-66"></span><span id="local-6989586621679037328"><span class="annot"><a href="Data.Recursive.Set.html#union"><span class="hs-identifier hs-type">union</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ord</span></span><span> </span><span class="annot"><a href="#local-6989586621679037328"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037328"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037328"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037328"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-67"></span><span id="union"><span class="annot"><span class="annottext">union :: forall a. Ord a =&gt; RSet a -&gt; RSet a -&gt; RSet a
+</span><a href="Data.Recursive.Set.html#union"><span class="hs-identifier hs-var hs-var">union</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenR (RSet a -&gt; RSet a -&gt; RSet a) -&gt; RSet a -&gt; RSet a -&gt; RSet a
+forall a. Coercible a (OpenR a) =&gt; OpenR a -&gt; a
+</span><a href="Data.Recursive.Internal.html#openR"><span class="hs-identifier hs-var">openR</span></a></span><span> </span><span class="annot"><span class="annottext">(OpenR (RSet a -&gt; RSet a -&gt; RSet a) -&gt; RSet a -&gt; RSet a -&gt; RSet a)
+-&gt; OpenR (RSet a -&gt; RSet a -&gt; RSet a) -&gt; RSet a -&gt; RSet a -&gt; RSet a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Prop (Set a) -&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+-&gt; Purify (Prop (Set a))
+-&gt; Purify (Prop (Set a))
+-&gt; Purify (Prop (Set a))
+forall pa a pb b pc c.
+(Propagator pa a, Propagator pb b, Propagator pc c) =&gt;
+(pa -&gt; pb -&gt; pc -&gt; IO ()) -&gt; Purify pa -&gt; Purify pb -&gt; Purify pc
+</span><a href="Data.Propagator.Purify.html#def2"><span class="hs-identifier hs-var">Purify.def2</span></a></span><span> </span><span class="annot"><span class="annottext">((Prop (Set a) -&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+ -&gt; Purify (Prop (Set a))
+ -&gt; Purify (Prop (Set a))
+ -&gt; Purify (Prop (Set a)))
+-&gt; (Prop (Set a) -&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+-&gt; Purify (Prop (Set a))
+-&gt; Purify (Prop (Set a))
+-&gt; Purify (Prop (Set a))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Set a -&gt; Set a -&gt; Set a)
+-&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; IO ()
+forall c a b.
+POrder c =&gt;
+(a -&gt; b -&gt; c) -&gt; Prop a -&gt; Prop b -&gt; Prop c -&gt; IO ()
+</span><a href="Data.Propagator.Naive.html#lift2"><span class="hs-identifier hs-var">lift2</span></a></span><span> </span><span class="annot"><span class="annottext">Set a -&gt; Set a -&gt; Set a
+forall a. Ord a =&gt; Set a -&gt; Set a -&gt; Set a
+</span><span class="hs-identifier hs-var">S.union</span></span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span class="hs-comment">-- | prop&gt; RS.get (RS.unions rs) === S.unions (map RS.get rs)</span><span>
+</span><span id="line-70"></span><span id="local-6989586621679037316"><span class="annot"><a href="Data.Recursive.Set.html#unions"><span class="hs-identifier hs-type">unions</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ord</span></span><span> </span><span class="annot"><a href="#local-6989586621679037316"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037316"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037316"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-71"></span><span id="unions"><span class="annot"><span class="annottext">unions :: forall a. Ord a =&gt; [RSet a] -&gt; RSet a
+</span><a href="Data.Recursive.Set.html#unions"><span class="hs-identifier hs-var hs-var">unions</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenR ([RSet a] -&gt; RSet a) -&gt; [RSet a] -&gt; RSet a
+forall a. Coercible a (OpenR a) =&gt; OpenR a -&gt; a
+</span><a href="Data.Recursive.Internal.html#openR"><span class="hs-identifier hs-var">openR</span></a></span><span> </span><span class="annot"><span class="annottext">(OpenR ([RSet a] -&gt; RSet a) -&gt; [RSet a] -&gt; RSet a)
+-&gt; OpenR ([RSet a] -&gt; RSet a) -&gt; [RSet a] -&gt; RSet a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">([Prop (Set a)] -&gt; Prop (Set a) -&gt; IO ())
+-&gt; [Purify (Prop (Set a))] -&gt; Purify (Prop (Set a))
+forall pa a pb b.
+(Propagator pa a, Propagator pb b) =&gt;
+([pa] -&gt; pb -&gt; IO ()) -&gt; [Purify pa] -&gt; Purify pb
+</span><a href="Data.Propagator.Purify.html#defList"><span class="hs-identifier hs-var">Purify.defList</span></a></span><span> </span><span class="annot"><span class="annottext">(([Prop (Set a)] -&gt; Prop (Set a) -&gt; IO ())
+ -&gt; [Purify (Prop (Set a))] -&gt; Purify (Prop (Set a)))
+-&gt; ([Prop (Set a)] -&gt; Prop (Set a) -&gt; IO ())
+-&gt; [Purify (Prop (Set a))]
+-&gt; Purify (Prop (Set a))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">([Set a] -&gt; Set a) -&gt; [Prop (Set a)] -&gt; Prop (Set a) -&gt; IO ()
+forall b a. POrder b =&gt; ([a] -&gt; b) -&gt; [Prop a] -&gt; Prop b -&gt; IO ()
+</span><a href="Data.Propagator.Naive.html#liftList"><span class="hs-identifier hs-var">liftList</span></a></span><span> </span><span class="annot"><span class="annottext">[Set a] -&gt; Set a
+forall (f :: * -&gt; *) a. (Foldable f, Ord a) =&gt; f (Set a) -&gt; Set a
+</span><span class="hs-identifier hs-var">S.unions</span></span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span class="hs-comment">-- | prop&gt; RS.get (RS.intersection r1 r2) === S.intersection (RS.get r1) (RS.get r2)</span><span>
+</span><span id="line-74"></span><span id="local-6989586621679037194"><span class="annot"><a href="Data.Recursive.Set.html#intersection"><span class="hs-identifier hs-type">intersection</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ord</span></span><span> </span><span class="annot"><a href="#local-6989586621679037194"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037194"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037194"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037194"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-75"></span><span id="intersection"><span class="annot"><span class="annottext">intersection :: forall a. Ord a =&gt; RSet a -&gt; RSet a -&gt; RSet a
+</span><a href="Data.Recursive.Set.html#intersection"><span class="hs-identifier hs-var hs-var">intersection</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenR (RSet a -&gt; RSet a -&gt; RSet a) -&gt; RSet a -&gt; RSet a -&gt; RSet a
+forall a. Coercible a (OpenR a) =&gt; OpenR a -&gt; a
+</span><a href="Data.Recursive.Internal.html#openR"><span class="hs-identifier hs-var">openR</span></a></span><span> </span><span class="annot"><span class="annottext">(OpenR (RSet a -&gt; RSet a -&gt; RSet a) -&gt; RSet a -&gt; RSet a -&gt; RSet a)
+-&gt; OpenR (RSet a -&gt; RSet a -&gt; RSet a) -&gt; RSet a -&gt; RSet a -&gt; RSet a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Prop (Set a) -&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+-&gt; Purify (Prop (Set a))
+-&gt; Purify (Prop (Set a))
+-&gt; Purify (Prop (Set a))
+forall pa a pb b pc c.
+(Propagator pa a, Propagator pb b, Propagator pc c) =&gt;
+(pa -&gt; pb -&gt; pc -&gt; IO ()) -&gt; Purify pa -&gt; Purify pb -&gt; Purify pc
+</span><a href="Data.Propagator.Purify.html#def2"><span class="hs-identifier hs-var">Purify.def2</span></a></span><span> </span><span class="annot"><span class="annottext">((Prop (Set a) -&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+ -&gt; Purify (Prop (Set a))
+ -&gt; Purify (Prop (Set a))
+ -&gt; Purify (Prop (Set a)))
+-&gt; (Prop (Set a) -&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+-&gt; Purify (Prop (Set a))
+-&gt; Purify (Prop (Set a))
+-&gt; Purify (Prop (Set a))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Set a -&gt; Set a -&gt; Set a)
+-&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; IO ()
+forall c a b.
+POrder c =&gt;
+(a -&gt; b -&gt; c) -&gt; Prop a -&gt; Prop b -&gt; Prop c -&gt; IO ()
+</span><a href="Data.Propagator.Naive.html#lift2"><span class="hs-identifier hs-var">lift2</span></a></span><span> </span><span class="annot"><span class="annottext">Set a -&gt; Set a -&gt; Set a
+forall a. Ord a =&gt; Set a -&gt; Set a -&gt; Set a
+</span><span class="hs-identifier hs-var">S.intersection</span></span><span>
+</span><span id="line-76"></span><span>
+</span><span id="line-77"></span><span class="hs-comment">-- | prop&gt; RB.get (RS.member n r1) === S.member n (RS.get r1)</span><span>
+</span><span id="line-78"></span><span id="local-6989586621679037305"><span class="annot"><a href="Data.Recursive.Set.html#member"><span class="hs-identifier hs-type">member</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ord</span></span><span> </span><span class="annot"><a href="#local-6989586621679037305"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679037305"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037305"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RBool"><span class="hs-identifier hs-type">RBool</span></a></span></span><span>
+</span><span id="line-79"></span><span id="member"><span class="annot"><span class="annottext">member :: forall a. Ord a =&gt; a -&gt; RSet a -&gt; RBool
+</span><a href="Data.Recursive.Set.html#member"><span class="hs-identifier hs-var hs-var">member</span></a></span></span><span> </span><span id="local-6989586621679037168"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679037168"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenR (RSet a -&gt; RBool) -&gt; RSet a -&gt; RBool
+forall a. Coercible a (OpenR a) =&gt; OpenR a -&gt; a
+</span><a href="Data.Recursive.Internal.html#openR"><span class="hs-identifier hs-var">openR</span></a></span><span> </span><span class="annot"><span class="annottext">(OpenR (RSet a -&gt; RBool) -&gt; RSet a -&gt; RBool)
+-&gt; OpenR (RSet a -&gt; RBool) -&gt; RSet a -&gt; RBool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Prop (Set a) -&gt; P2 -&gt; IO ()) -&gt; Purify (Prop (Set a)) -&gt; Purify P2
+forall pa a pb b.
+(Propagator pa a, Propagator pb b) =&gt;
+(pa -&gt; pb -&gt; IO ()) -&gt; Purify pa -&gt; Purify pb
+</span><a href="Data.Propagator.Purify.html#def1"><span class="hs-identifier hs-var">Purify.def1</span></a></span><span> </span><span class="annot"><span class="annottext">((Prop (Set a) -&gt; P2 -&gt; IO ())
+ -&gt; Purify (Prop (Set a)) -&gt; Purify P2)
+-&gt; (Prop (Set a) -&gt; P2 -&gt; IO ())
+-&gt; Purify (Prop (Set a))
+-&gt; Purify P2
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679037167"><span class="annot"><span class="annottext">Prop (Set a)
+</span><a href="#local-6989586621679037167"><span class="hs-identifier hs-var">ps</span></a></span></span><span> </span><span id="local-6989586621679037166"><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037166"><span class="hs-identifier hs-var">pb</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-80"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679037165"><span class="annot"><span class="annottext">update :: IO ()
+</span><a href="#local-6989586621679037165"><span class="hs-identifier hs-var hs-var">update</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-81"></span><span>            </span><span id="local-6989586621679037164"><span class="annot"><span class="annottext">Set a
+</span><a href="#local-6989586621679037164"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Prop (Set a) -&gt; IO (Set a)
+forall a. Prop a -&gt; IO a
+</span><a href="Data.Propagator.Naive.html#readProp"><span class="hs-identifier hs-var">readProp</span></a></span><span> </span><span class="annot"><span class="annottext">Prop (Set a)
+</span><a href="#local-6989586621679037167"><span class="hs-identifier hs-var">ps</span></a></span><span>
+</span><span id="line-82"></span><span>            </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">a -&gt; Set a -&gt; Bool
+forall a. Ord a =&gt; a -&gt; Set a -&gt; Bool
+</span><span class="hs-identifier hs-var">S.member</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679037168"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Set a
+</span><a href="#local-6989586621679037164"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">P2 -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#setTop"><span class="hs-identifier hs-var">setTop</span></a></span><span> </span><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037166"><span class="hs-identifier hs-var">pb</span></a></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">() -&gt; IO ()
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-83"></span><span>    </span><span class="annot"><span class="annottext">Prop (Set a) -&gt; IO () -&gt; IO ()
+forall a. Prop a -&gt; IO () -&gt; IO ()
+</span><a href="Data.Propagator.Naive.html#watchProp"><span class="hs-identifier hs-var">watchProp</span></a></span><span> </span><span class="annot"><span class="annottext">Prop (Set a)
+</span><a href="#local-6989586621679037167"><span class="hs-identifier hs-var">ps</span></a></span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679037165"><span class="hs-identifier hs-var">update</span></a></span><span>
+</span><span id="line-84"></span><span>    </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679037165"><span class="hs-identifier hs-var">update</span></a></span><span>
+</span><span id="line-85"></span><span>
+</span><span id="line-86"></span><span class="hs-comment">-- | prop&gt; RDB.get (RS.notMember n r1) === S.notMember n (RS.get r1)</span><span>
+</span><span id="line-87"></span><span id="local-6989586621679037296"><span class="annot"><a href="Data.Recursive.Set.html#notMember"><span class="hs-identifier hs-type">notMember</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ord</span></span><span> </span><span class="annot"><a href="#local-6989586621679037296"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679037296"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037296"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RDualBool"><span class="hs-identifier hs-type">RDualBool</span></a></span></span><span>
+</span><span id="line-88"></span><span id="notMember"><span class="annot"><span class="annottext">notMember :: forall a. Ord a =&gt; a -&gt; RSet a -&gt; RDualBool
+</span><a href="Data.Recursive.Set.html#notMember"><span class="hs-identifier hs-var hs-var">notMember</span></a></span></span><span> </span><span id="local-6989586621679037148"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679037148"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenR (RSet a -&gt; RDualBool) -&gt; RSet a -&gt; RDualBool
+forall a. Coercible a (OpenR a) =&gt; OpenR a -&gt; a
+</span><a href="Data.Recursive.Internal.html#openR"><span class="hs-identifier hs-var">openR</span></a></span><span> </span><span class="annot"><span class="annottext">(OpenR (RSet a -&gt; RDualBool) -&gt; RSet a -&gt; RDualBool)
+-&gt; OpenR (RSet a -&gt; RDualBool) -&gt; RSet a -&gt; RDualBool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Prop (Set a) -&gt; P2 -&gt; IO ()) -&gt; Purify (Prop (Set a)) -&gt; Purify P2
+forall pa a pb b.
+(Propagator pa a, Propagator pb b) =&gt;
+(pa -&gt; pb -&gt; IO ()) -&gt; Purify pa -&gt; Purify pb
+</span><a href="Data.Propagator.Purify.html#def1"><span class="hs-identifier hs-var">Purify.def1</span></a></span><span> </span><span class="annot"><span class="annottext">((Prop (Set a) -&gt; P2 -&gt; IO ())
+ -&gt; Purify (Prop (Set a)) -&gt; Purify P2)
+-&gt; (Prop (Set a) -&gt; P2 -&gt; IO ())
+-&gt; Purify (Prop (Set a))
+-&gt; Purify P2
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679037147"><span class="annot"><span class="annottext">Prop (Set a)
+</span><a href="#local-6989586621679037147"><span class="hs-identifier hs-var">ps</span></a></span></span><span> </span><span id="local-6989586621679037146"><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037146"><span class="hs-identifier hs-var">pb</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-89"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679037145"><span class="annot"><span class="annottext">update :: IO ()
+</span><a href="#local-6989586621679037145"><span class="hs-identifier hs-var hs-var">update</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-90"></span><span>            </span><span id="local-6989586621679037144"><span class="annot"><span class="annottext">Set a
+</span><a href="#local-6989586621679037144"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Prop (Set a) -&gt; IO (Set a)
+forall a. Prop a -&gt; IO a
+</span><a href="Data.Propagator.Naive.html#readProp"><span class="hs-identifier hs-var">readProp</span></a></span><span> </span><span class="annot"><span class="annottext">Prop (Set a)
+</span><a href="#local-6989586621679037147"><span class="hs-identifier hs-var">ps</span></a></span><span>
+</span><span id="line-91"></span><span>            </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">a -&gt; Set a -&gt; Bool
+forall a. Ord a =&gt; a -&gt; Set a -&gt; Bool
+</span><span class="hs-identifier hs-var">S.member</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679037148"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Set a
+</span><a href="#local-6989586621679037144"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">P2 -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#setTop"><span class="hs-identifier hs-var">setTop</span></a></span><span> </span><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037146"><span class="hs-identifier hs-var">pb</span></a></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">() -&gt; IO ()
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-92"></span><span>    </span><span class="annot"><span class="annottext">Prop (Set a) -&gt; IO () -&gt; IO ()
+forall a. Prop a -&gt; IO () -&gt; IO ()
+</span><a href="Data.Propagator.Naive.html#watchProp"><span class="hs-identifier hs-var">watchProp</span></a></span><span> </span><span class="annot"><span class="annottext">Prop (Set a)
+</span><a href="#local-6989586621679037147"><span class="hs-identifier hs-var">ps</span></a></span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679037145"><span class="hs-identifier hs-var">update</span></a></span><span>
+</span><span id="line-93"></span><span>    </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679037145"><span class="hs-identifier hs-var">update</span></a></span><span>
+</span><span id="line-94"></span><span>
+</span><span id="line-95"></span><span class="hs-comment">-- | prop&gt; RDB.get (RS.null s) === S.null (RS.get s)</span><span>
+</span><span id="line-96"></span><span id="local-6989586621679037293"><span class="annot"><a href="Data.Recursive.Set.html#null"><span class="hs-identifier hs-type">null</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037293"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RDualBool"><span class="hs-identifier hs-type">RDualBool</span></a></span></span><span>
+</span><span id="line-97"></span><span id="null"><span class="annot"><span class="annottext">null :: forall a. RSet a -&gt; RDualBool
+</span><a href="Data.Recursive.Set.html#null"><span class="hs-identifier hs-var hs-var">null</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenR (RSet a -&gt; RDualBool) -&gt; RSet a -&gt; RDualBool
+forall a. Coercible a (OpenR a) =&gt; OpenR a -&gt; a
+</span><a href="Data.Recursive.Internal.html#openR"><span class="hs-identifier hs-var">openR</span></a></span><span> </span><span class="annot"><span class="annottext">(OpenR (RSet a -&gt; RDualBool) -&gt; RSet a -&gt; RDualBool)
+-&gt; OpenR (RSet a -&gt; RDualBool) -&gt; RSet a -&gt; RDualBool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Prop (Set a) -&gt; P2 -&gt; IO ()) -&gt; Purify (Prop (Set a)) -&gt; Purify P2
+forall pa a pb b.
+(Propagator pa a, Propagator pb b) =&gt;
+(pa -&gt; pb -&gt; IO ()) -&gt; Purify pa -&gt; Purify pb
+</span><a href="Data.Propagator.Purify.html#def1"><span class="hs-identifier hs-var">Purify.def1</span></a></span><span> </span><span class="annot"><span class="annottext">((Prop (Set a) -&gt; P2 -&gt; IO ())
+ -&gt; Purify (Prop (Set a)) -&gt; Purify P2)
+-&gt; (Prop (Set a) -&gt; P2 -&gt; IO ())
+-&gt; Purify (Prop (Set a))
+-&gt; Purify P2
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679037134"><span class="annot"><span class="annottext">Prop (Set a)
+</span><a href="#local-6989586621679037134"><span class="hs-identifier hs-var">ps</span></a></span></span><span> </span><span id="local-6989586621679037133"><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037133"><span class="hs-identifier hs-var">pb</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-98"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679037132"><span class="annot"><span class="annottext">update :: IO ()
+</span><a href="#local-6989586621679037132"><span class="hs-identifier hs-var hs-var">update</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-99"></span><span>            </span><span id="local-6989586621679037131"><span class="annot"><span class="annottext">Set a
+</span><a href="#local-6989586621679037131"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Prop (Set a) -&gt; IO (Set a)
+forall a. Prop a -&gt; IO a
+</span><a href="Data.Propagator.Naive.html#readProp"><span class="hs-identifier hs-var">readProp</span></a></span><span> </span><span class="annot"><span class="annottext">Prop (Set a)
+</span><a href="#local-6989586621679037134"><span class="hs-identifier hs-var">ps</span></a></span><span>
+</span><span id="line-100"></span><span>            </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><span class="hs-identifier hs-var">unless</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Set a -&gt; Bool
+forall a. Set a -&gt; Bool
+</span><span class="hs-identifier hs-var">S.null</span></span><span> </span><span class="annot"><span class="annottext">Set a
+</span><a href="#local-6989586621679037131"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">P2 -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#setTop"><span class="hs-identifier hs-var">setTop</span></a></span><span> </span><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037133"><span class="hs-identifier hs-var">pb</span></a></span><span>
+</span><span id="line-101"></span><span>    </span><span class="annot"><span class="annottext">Prop (Set a) -&gt; IO () -&gt; IO ()
+forall a. Prop a -&gt; IO () -&gt; IO ()
+</span><a href="Data.Propagator.Naive.html#watchProp"><span class="hs-identifier hs-var">watchProp</span></a></span><span> </span><span class="annot"><span class="annottext">Prop (Set a)
+</span><a href="#local-6989586621679037134"><span class="hs-identifier hs-var">ps</span></a></span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679037132"><span class="hs-identifier hs-var">update</span></a></span><span>
+</span><span id="line-102"></span><span>    </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679037132"><span class="hs-identifier hs-var">update</span></a></span><span>
+</span><span id="line-103"></span><span>
+</span><span id="line-104"></span><span class="hs-comment">-- | prop&gt; RDB.get (RS.disjoint r1 r2) === S.disjoint (RS.get r1) (RS.get r2)</span><span>
+</span><span id="line-105"></span><span id="local-6989586621679037289"><span class="annot"><a href="Data.Recursive.Set.html#disjoint"><span class="hs-identifier hs-type">disjoint</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ord</span></span><span> </span><span class="annot"><a href="#local-6989586621679037289"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037289"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037289"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RDualBool"><span class="hs-identifier hs-type">RDualBool</span></a></span></span><span>
+</span><span id="line-106"></span><span id="disjoint"><span class="annot"><span class="annottext">disjoint :: forall a. Ord a =&gt; RSet a -&gt; RSet a -&gt; RDualBool
+</span><a href="Data.Recursive.Set.html#disjoint"><span class="hs-identifier hs-var hs-var">disjoint</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenR (RSet a -&gt; RSet a -&gt; RDualBool)
+-&gt; RSet a -&gt; RSet a -&gt; RDualBool
+forall a. Coercible a (OpenR a) =&gt; OpenR a -&gt; a
+</span><a href="Data.Recursive.Internal.html#openR"><span class="hs-identifier hs-var">openR</span></a></span><span> </span><span class="annot"><span class="annottext">(OpenR (RSet a -&gt; RSet a -&gt; RDualBool)
+ -&gt; RSet a -&gt; RSet a -&gt; RDualBool)
+-&gt; OpenR (RSet a -&gt; RSet a -&gt; RDualBool)
+-&gt; RSet a
+-&gt; RSet a
+-&gt; RDualBool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Prop (Set a) -&gt; Prop (Set a) -&gt; P2 -&gt; IO ())
+-&gt; Purify (Prop (Set a)) -&gt; Purify (Prop (Set a)) -&gt; Purify P2
+forall pa a pb b pc c.
+(Propagator pa a, Propagator pb b, Propagator pc c) =&gt;
+(pa -&gt; pb -&gt; pc -&gt; IO ()) -&gt; Purify pa -&gt; Purify pb -&gt; Purify pc
+</span><a href="Data.Propagator.Purify.html#def2"><span class="hs-identifier hs-var">Purify.def2</span></a></span><span> </span><span class="annot"><span class="annottext">((Prop (Set a) -&gt; Prop (Set a) -&gt; P2 -&gt; IO ())
+ -&gt; Purify (Prop (Set a)) -&gt; Purify (Prop (Set a)) -&gt; Purify P2)
+-&gt; (Prop (Set a) -&gt; Prop (Set a) -&gt; P2 -&gt; IO ())
+-&gt; Purify (Prop (Set a))
+-&gt; Purify (Prop (Set a))
+-&gt; Purify P2
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679037114"><span class="annot"><span class="annottext">Prop (Set a)
+</span><a href="#local-6989586621679037114"><span class="hs-identifier hs-var">ps1</span></a></span></span><span> </span><span id="local-6989586621679037113"><span class="annot"><span class="annottext">Prop (Set a)
+</span><a href="#local-6989586621679037113"><span class="hs-identifier hs-var">ps2</span></a></span></span><span> </span><span id="local-6989586621679037112"><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037112"><span class="hs-identifier hs-var">pb</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-107"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679037111"><span class="annot"><span class="annottext">update :: IO ()
+</span><a href="#local-6989586621679037111"><span class="hs-identifier hs-var hs-var">update</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-108"></span><span>            </span><span id="local-6989586621679037110"><span class="annot"><span class="annottext">Set a
+</span><a href="#local-6989586621679037110"><span class="hs-identifier hs-var">s1</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Prop (Set a) -&gt; IO (Set a)
+forall a. Prop a -&gt; IO a
+</span><a href="Data.Propagator.Naive.html#readProp"><span class="hs-identifier hs-var">readProp</span></a></span><span> </span><span class="annot"><span class="annottext">Prop (Set a)
+</span><a href="#local-6989586621679037114"><span class="hs-identifier hs-var">ps1</span></a></span><span>
+</span><span id="line-109"></span><span>            </span><span id="local-6989586621679037109"><span class="annot"><span class="annottext">Set a
+</span><a href="#local-6989586621679037109"><span class="hs-identifier hs-var">s2</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Prop (Set a) -&gt; IO (Set a)
+forall a. Prop a -&gt; IO a
+</span><a href="Data.Propagator.Naive.html#readProp"><span class="hs-identifier hs-var">readProp</span></a></span><span> </span><span class="annot"><span class="annottext">Prop (Set a)
+</span><a href="#local-6989586621679037113"><span class="hs-identifier hs-var">ps2</span></a></span><span>
+</span><span id="line-110"></span><span>            </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><span class="hs-identifier hs-var">unless</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Set a -&gt; Set a -&gt; Bool
+forall a. Ord a =&gt; Set a -&gt; Set a -&gt; Bool
+</span><span class="hs-identifier hs-var">S.disjoint</span></span><span> </span><span class="annot"><span class="annottext">Set a
+</span><a href="#local-6989586621679037110"><span class="hs-identifier hs-var">s1</span></a></span><span> </span><span class="annot"><span class="annottext">Set a
+</span><a href="#local-6989586621679037109"><span class="hs-identifier hs-var">s2</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">P2 -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#setTop"><span class="hs-identifier hs-var">setTop</span></a></span><span> </span><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037112"><span class="hs-identifier hs-var">pb</span></a></span><span>
+</span><span id="line-111"></span><span>    </span><span class="annot"><span class="annottext">Prop (Set a) -&gt; IO () -&gt; IO ()
+forall a. Prop a -&gt; IO () -&gt; IO ()
+</span><a href="Data.Propagator.Naive.html#watchProp"><span class="hs-identifier hs-var">watchProp</span></a></span><span> </span><span class="annot"><span class="annottext">Prop (Set a)
+</span><a href="#local-6989586621679037114"><span class="hs-identifier hs-var">ps1</span></a></span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679037111"><span class="hs-identifier hs-var">update</span></a></span><span>
+</span><span id="line-112"></span><span>    </span><span class="annot"><span class="annottext">Prop (Set a) -&gt; IO () -&gt; IO ()
+forall a. Prop a -&gt; IO () -&gt; IO ()
+</span><a href="Data.Propagator.Naive.html#watchProp"><span class="hs-identifier hs-var">watchProp</span></a></span><span> </span><span class="annot"><span class="annottext">Prop (Set a)
+</span><a href="#local-6989586621679037113"><span class="hs-identifier hs-var">ps2</span></a></span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679037111"><span class="hs-identifier hs-var">update</span></a></span><span>
+</span><span id="line-113"></span><span>    </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621679037111"><span class="hs-identifier hs-var">update</span></a></span><span>
+</span><span id="line-114"></span><span>
+</span><span id="line-115"></span><span class="hs-comment">-- | An kind of if-then-else statement. Because of monotonicity requirements,</span><span>
+</span><span id="line-116"></span><span class="hs-comment">-- this should be sufficient.</span><span>
+</span><span id="line-117"></span><span class="hs-comment">--</span><span>
+</span><span id="line-118"></span><span class="hs-comment">-- prop&gt; RS.get (RS.when b r) === (if RB.get b then RS.get r else S.empty)</span><span>
+</span><span id="line-119"></span><span id="local-6989586621679037286"><span class="annot"><a href="Data.Recursive.Set.html#when"><span class="hs-identifier hs-type">when</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RBool"><span class="hs-identifier hs-type">RBool</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037286"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037286"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-120"></span><span id="when"><span class="annot"><span class="annottext">when :: forall a. RBool -&gt; RSet a -&gt; RSet a
+</span><a href="Data.Recursive.Set.html#when"><span class="hs-identifier hs-var hs-var">when</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenR (RBool -&gt; RSet a -&gt; RSet a) -&gt; RBool -&gt; RSet a -&gt; RSet a
+forall a. Coercible a (OpenR a) =&gt; OpenR a -&gt; a
+</span><a href="Data.Recursive.Internal.html#openR"><span class="hs-identifier hs-var">openR</span></a></span><span> </span><span class="annot"><span class="annottext">(OpenR (RBool -&gt; RSet a -&gt; RSet a) -&gt; RBool -&gt; RSet a -&gt; RSet a)
+-&gt; OpenR (RBool -&gt; RSet a -&gt; RSet a) -&gt; RBool -&gt; RSet a -&gt; RSet a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(P2 -&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+-&gt; Purify P2 -&gt; Purify (Prop (Set a)) -&gt; Purify (Prop (Set a))
+forall pa a pb b pc c.
+(Propagator pa a, Propagator pb b, Propagator pc c) =&gt;
+(pa -&gt; pb -&gt; pc -&gt; IO ()) -&gt; Purify pa -&gt; Purify pb -&gt; Purify pc
+</span><a href="Data.Propagator.Purify.html#def2"><span class="hs-identifier hs-var">Purify.def2</span></a></span><span> </span><span class="annot"><span class="annottext">((P2 -&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+ -&gt; Purify P2 -&gt; Purify (Prop (Set a)) -&gt; Purify (Prop (Set a)))
+-&gt; (P2 -&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+-&gt; Purify P2
+-&gt; Purify (Prop (Set a))
+-&gt; Purify (Prop (Set a))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679037099"><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037099"><span class="hs-identifier hs-var">pb</span></a></span></span><span> </span><span id="local-6989586621679037098"><span class="annot"><span class="annottext">Prop (Set a)
+</span><a href="#local-6989586621679037098"><span class="hs-identifier hs-var">ps1</span></a></span></span><span> </span><span id="local-6989586621679037097"><span class="annot"><span class="annottext">Prop (Set a)
+</span><a href="#local-6989586621679037097"><span class="hs-identifier hs-var">ps2</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-121"></span><span>    </span><span class="annot"><span class="annottext">P2 -&gt; IO () -&gt; IO ()
+</span><a href="Data.Propagator.P2.html#whenTop"><span class="hs-identifier hs-var">whenTop</span></a></span><span> </span><span class="annot"><span class="annottext">P2
+</span><a href="#local-6989586621679037099"><span class="hs-identifier hs-var">pb</span></a></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Set a -&gt; Set a) -&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; IO ()
+forall b a. POrder b =&gt; (a -&gt; b) -&gt; Prop a -&gt; Prop b -&gt; IO ()
+</span><a href="Data.Propagator.Naive.html#lift1"><span class="hs-identifier hs-var">lift1</span></a></span><span> </span><span class="annot"><span class="annottext">Set a -&gt; Set a
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">Prelude.id</span></span><span> </span><span class="annot"><span class="annottext">Prop (Set a)
+</span><a href="#local-6989586621679037098"><span class="hs-identifier hs-var">ps1</span></a></span><span> </span><span class="annot"><span class="annottext">Prop (Set a)
+</span><a href="#local-6989586621679037097"><span class="hs-identifier hs-var">ps2</span></a></span><span>
+</span><span id="line-122"></span><span>
+</span><span id="line-123"></span><span class="hs-comment">-- | The identity function. This is useful when tying the knot, to avoid a loop that bottoms out:</span><span>
+</span><span id="line-124"></span><span class="hs-comment">--</span><span>
+</span><span id="line-125"></span><span class="hs-comment">-- &gt; let x = x in RS.get x</span><span>
+</span><span id="line-126"></span><span class="hs-comment">--</span><span>
+</span><span id="line-127"></span><span class="hs-comment">-- will not work, but</span><span>
+</span><span id="line-128"></span><span class="hs-comment">--</span><span>
+</span><span id="line-129"></span><span class="hs-comment">-- &gt;&gt;&gt; let x = RS.id x in RS.get x</span><span>
+</span><span id="line-130"></span><span class="hs-comment">-- fromList []</span><span>
+</span><span id="line-131"></span><span class="hs-comment">--</span><span>
+</span><span id="line-132"></span><span class="hs-comment">-- does.</span><span>
+</span><span id="line-133"></span><span class="hs-comment">--</span><span>
+</span><span id="line-134"></span><span class="hs-comment">-- | prop&gt; RS.get (RS.id s) === RS.get s</span><span>
+</span><span id="line-135"></span><span id="local-6989586621679037283"><span class="annot"><a href="Data.Recursive.Set.html#id"><span class="hs-identifier hs-type">id</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037283"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Recursive.Internal.html#RSet"><span class="hs-identifier hs-type">RSet</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679037283"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-136"></span><span id="id"><span class="annot"><span class="annottext">id :: forall a. RSet a -&gt; RSet a
+</span><a href="Data.Recursive.Set.html#id"><span class="hs-identifier hs-var hs-var">id</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenR (RSet a -&gt; RSet a) -&gt; RSet a -&gt; RSet a
+forall a. Coercible a (OpenR a) =&gt; OpenR a -&gt; a
+</span><a href="Data.Recursive.Internal.html#openR"><span class="hs-identifier hs-var">openR</span></a></span><span> </span><span class="annot"><span class="annottext">(OpenR (RSet a -&gt; RSet a) -&gt; RSet a -&gt; RSet a)
+-&gt; OpenR (RSet a -&gt; RSet a) -&gt; RSet a -&gt; RSet a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+-&gt; Purify (Prop (Set a)) -&gt; Purify (Prop (Set a))
+forall pa a pb b.
+(Propagator pa a, Propagator pb b) =&gt;
+(pa -&gt; pb -&gt; IO ()) -&gt; Purify pa -&gt; Purify pb
+</span><a href="Data.Propagator.Purify.html#def1"><span class="hs-identifier hs-var">Purify.def1</span></a></span><span> </span><span class="annot"><span class="annottext">((Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+ -&gt; Purify (Prop (Set a)) -&gt; Purify (Prop (Set a)))
+-&gt; (Prop (Set a) -&gt; Prop (Set a) -&gt; IO ())
+-&gt; Purify (Prop (Set a))
+-&gt; Purify (Prop (Set a))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Set a -&gt; Set a) -&gt; Prop (Set a) -&gt; Prop (Set a) -&gt; IO ()
+forall b a. POrder b =&gt; (a -&gt; b) -&gt; Prop a -&gt; Prop b -&gt; IO ()
+</span><a href="Data.Propagator.Naive.html#lift1"><span class="hs-identifier hs-var">lift1</span></a></span><span> </span><span class="annot"><span class="annottext">Set a -&gt; Set a
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">Prelude.id</span></span><span>
+</span><span id="line-137"></span></pre></body></html>

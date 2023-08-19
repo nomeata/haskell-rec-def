@@ -1,0 +1,110 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Data.Recursive.Examples</title><link href="linuwial.css" rel="stylesheet" type="text/css" title="Linuwial" /><link rel="stylesheet" type="text/css" href="quick-jump.css" /><link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=PT+Sans:400,400i,700" /><script src="haddock-bundle.min.js" async="async" type="text/javascript"></script><script type="text/x-mathjax-config">MathJax.Hub.Config({ tex2jax: { processClass: "mathjax", ignoreClass: ".*" } });</script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script></head><body><div id="package-header"><span class="caption">rec-def-0.2.2: Recursively defined values</span><ul class="links" id="page-menu"><li><a href="src/Data.Recursive.Examples.html">Source</a></li><li><a href="index.html">Contents</a></li><li><a href="doc-index.html">Index</a></li></ul></div><div id="content"><div id="module-header"><table class="info"><tr><th>Safe Haskell</th><td>Safe-Inferred</td></tr><tr><th>Language</th><td>Haskell2010</td></tr></table><p class="caption">Data.Recursive.Examples</p></div><div id="description"><p class="caption">Description</p><div class="doc"><p>This file contains a few examples of using the <code>rec-def</code> library. There is no
+need to actually use this module.</p><h1>A <code>rec-def</code> tutorial</h1><p>Imagine you are trying to calculate a boolean value, but your calculation is
+happens to be recursive. Just writing down the equations does not work:</p><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>withTimeout $ let x = y || False; y = x &amp;&amp; False in x
+</code></strong>*** Exception: timed out
+</pre><p>This is unfortunate, isn&#8217;t it?</p><h2>A <code>Bool</code> with recursive equations</h2><p>This library provides data types where this works. You can write the equations
+in that way just fine, and still get a result.</p><p>For example, the <code><a href="Data-Recursive-Bool.html#v:RBool" title="Data.Recursive.Bool">RBool</a></code> type comes with functions that look quite like their
+ordinary counterparts acting on <code><a href="https://hackage.haskell.org/package/base-4.16.1.0/docs/Data-Bool.html#t:Bool" title="Data.Bool">Bool</a></code>.</p><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>import Data.Recursive.Bool (RBool)
+</code></strong><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>import qualified Data.Recursive.Bool as RB
+</code></strong></pre><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>:t RB.true
+</code></strong>RB.true :: RBool
+<code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>:t RB.false
+</code></strong>RB.false :: RBool
+<code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>:t (RB.||)
+</code></strong>(RB.||) :: RBool -&gt; RBool -&gt; RBool
+<code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>:t (RB.&amp;&amp;)
+</code></strong>(RB.&amp;&amp;) :: RBool -&gt; RBool -&gt; RBool
+<code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>RB.get RB.true
+</code></strong>True
+<code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>RB.get RB.false
+</code></strong>False
+<code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>RB.get (RB.false RB.&amp;&amp; RB.true)
+</code></strong>False
+<code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>RB.get (RB.true RB.&amp;&amp; RB.true)
+</code></strong>True
+<code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>RB.get (RB.or [RB.true,  RB.false, RB.true])
+</code></strong>True
+</pre><p>So far so good, lets see what happens when we try something recursive:</p><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>let x = RB.or [y]; y = RB.and [x, RB.false] in RB.get x
+</code></strong>False
+<code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>let x = RB.or [y]; y = RB.or [x, RB.false] in RB.get x
+</code></strong>False
+<code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>let x = RB.or [y]; y = RB.or [x, RB.true] in RB.get x
+</code></strong>True
+<code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>let x = RB.or [y]; y = RB.or [x] in RB.get x
+</code></strong>False
+</pre><h2>Least or greatest solution</h2><p>The last equation is interesting: We essentially say that <code>x</code> is <code>True</code> if <code>y</code> is
+<code>True</code>, and <code>y</code> is <code>True</code> if <code>x</code> is <code>True</code>. This has two solutions, we can either set
+both to <code>True</code> and both to <code>False</code>.</p><p>We (arbitrary) choose to find the least solution, i.e. prefer <code>False</code> and
+only find <code>True</code> if we have to. This is useful, for example, if you check something recursive for errors.</p><p>Sometimes you want the other one. Then you can use <code>RDualBool</code>. The module
+<a href="Data-Recursive-DualBool.html">Data.Recursive.DualBool</a> exports all the functions for that type too. We can
+run the same equations, and get different answers:</p><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>import Data.Recursive.DualBool (RDualBool)
+</code></strong><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>import qualified Data.Recursive.DualBool as RDB
+</code></strong></pre><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>let x = RDB.or [y]; y = RDB.and [x, RDB.false] in RDB.get x
+</code></strong>False
+<code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>let x = RDB.or [y]; y = RDB.or [x, RDB.false] in RDB.get x
+</code></strong>True
+<code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>let x = RDB.or [y]; y = RDB.or [x, RDB.true] in RDB.get x
+</code></strong>True
+<code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>let x = RDB.or [y]; y = RDB.or [x] in RDB.get x
+</code></strong>True
+</pre><p>The negation function is also available, and goes from can-be-true to must-be-true and back:</p><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>:t RB.not
+</code></strong>RB.not :: RDualBool -&gt; RBool
+<code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>:t RDB.not
+</code></strong>RDB.not :: RBool -&gt; RDualBool
+</pre><p>This allows us to mix the different types in the same computation:</p><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>:{
+</code></strong>  let x = RB.not y RB.|| RB.not z
+      y = RDB.not x RDB.&amp;&amp; z
+      z = RDB.true
+  in (RB.get x, RDB.get y, RDB.get z)
+ :}
+(False,True,True)
+</pre><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>:{
+</code></strong>  let x = RB.not y RB.|| RB.not z
+      y = RDB.not x RDB.&amp;&amp; z
+      z = RDB.false
+  in (RB.get x, RDB.get y, RDB.get z)
+ :}
+(True,False,False)
+</pre><h2>Sets</h2><p>We do not have to stop with booleans, and can define similar APIs for other
+data stuctures, e.g. sets:</p><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>import qualified Data.Recursive.Set as RS
+</code></strong></pre><p>Again we can describe sets recursively, using the monotone functions <code><a href="Data-Recursive-Set.html#v:empty" title="Data.Recursive.Set">empty</a></code>,
+<code><a href="Data-Recursive-Set.html#v:insert" title="Data.Recursive.Set">insert</a></code> and <code><a href="Data-Recursive-Set.html#v:union" title="Data.Recursive.Set">union</a></code></p><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>:{
+</code></strong>  let s1 = RS.insert 23 s2
+      s2 = RS.insert 42 s1
+  in RS.get s1
+ :}
+fromList [23,42]
+</pre><p>Here is a slightly larger example, where we can use this API to elegantly
+calculate the reachable nodes in a graph (represented as a map from vertices to
+their successors), using a typical knot-tying approach. But unless with plain
+<code><a href="S.html#v:Set" title="S">Set</a></code>, it now works even if the graph has cycles:</p><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>:{
+</code></strong>   reachable :: M.Map Int [Int] -&gt; M.Map Int (S.Set Int)
+   reachable g = fmap RS.get sets
+     where
+       sets :: M.Map Int (RS.RSet Int)
+       sets = M.mapWithKey (\v vs -&gt; RS.insert v (RS.unions [ sets ! v' | v' &lt;- vs ])) g
+ :}
+</pre><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>let graph = M.fromList [(1,[2,3]),(2,[1]),(3,[])]
+</code></strong><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>reachable graph M.! 1
+</code></strong>fromList [1,2,3]
+<code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>reachable graph M.! 3
+</code></strong>fromList [3]
+</pre><h2>Caveats</h2><p>Of course, the magic stops somewhere: Just like with the usual knot-tying
+tricks, you still have to make sure to be lazy enough. In particular, you should
+not peek at the value (e.g. using <code><a href="Data-Recursive-Bool.html#v:get" title="Data.Recursive.Bool">get</a></code>) while you are building the graph:</p><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>:{
+</code></strong>    withTimeout $
+      let x = RB.and [x, if RB.get y then z else RB.true]
+          y = RB.and [x, RB.true]
+          z = RB.false
+      in RB.get y
+    :}
+*** Exception: timed out
+</pre><p>Similarly, you have to make sure you recurse through one of these functions; <code>let x = x</code> still does not work:</p><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>withTimeout $ let x = x :: RBool in RB.get x
+</code></strong>*** Exception: timed out
+<code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>withTimeout $ let x = x RB.&amp;&amp; x in RB.get x
+</code></strong>False
+</pre><p>We belive that the APIs provided here are still &#8220;pure&#8221;: evaluation order does not affect the results, and you can replace equals with equals, in the sense that</p><pre>let s = RS.insert 42 s in s</pre><p>is the same as</p><pre>let s = RS.insert 42 s in RS.insert 42 s</pre><p>However, the the following two expressions are not equivalent:</p><pre class="screen"><code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>withTimeout $ S.toList $ let s = RS.insert 42 s in RS.get s
+</code></strong>[42]
+<code class="prompt">&gt;&gt;&gt; </code><strong class="userinput"><code>withTimeout $ S.toList $ let s () = RS.insert 42 (s ()) in RS.get (s ())
+</code></strong>*** Exception: timed out
+</pre><p>It is debatable if that is a problem.</p></div></div><div id="interface"></div></div><div id="footer"><p>Produced by <a href="http://www.haskell.org/haddock/">Haddock</a> version 2.26.0</p></div></body></html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- | This module provides the 'POrder' and related classes</span><span>
+</span><span id="line-2"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Data.POrder</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Monoid</span></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Set</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">S</span></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Numeric.Natural</span></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Function</span></span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- | This class indicates that the type @a@ is partially ordered by some relation &#8849;.</span><span>
+</span><span id="line-10"></span><span class="hs-comment">--</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- The class does not actually have a method for &#8849;, because we do not need it at runtime.</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Nevertheless the order better exists for the safety of this API.</span><span>
+</span><span id="line-13"></span><span class="hs-comment">--</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- This order may be unrelated to the total order given by 'Ord'.</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">class</span><span> </span><span id="POrder"><span class="annot"><a href="Data.POrder.html#POrder"><span class="hs-identifier hs-var">POrder</span></a></span></span><span> </span><span id="local-6989586621679036459"><span class="annot"><a href="#local-6989586621679036459"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-16"></span><span>    </span><span class="hs-comment">-- | The `eqOfLe` method checks _related_ elements for equality.</span><span>
+</span><span id="line-17"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-18"></span><span>    </span><span class="hs-comment">-- Formally: For all @x &#8849; y@, @eqOfLe x y == True@ iff @x == y@.</span><span>
+</span><span id="line-19"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-20"></span><span>    </span><span class="hs-comment">-- This can be more efficient than testing for equality. For example for</span><span>
+</span><span id="line-21"></span><span>    </span><span class="hs-comment">-- sets, '(==)' needs to compare the elements, but @eqOfLe@ only needs to</span><span>
+</span><span id="line-22"></span><span>    </span><span class="hs-comment">-- compare sizes. It is always ok to use '(==)' here.</span><span>
+</span><span id="line-23"></span><span>    </span><span id="eqOfLe"><span class="annot"><a href="Data.POrder.html#eqOfLe"><span class="hs-identifier hs-type">eqOfLe</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679036459"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679036459"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span class="hs-comment">-- | A class indicating that the type @a@ is has a bottom</span><span>
+</span><span id="line-26"></span><span class="hs-comment">-- element.</span><span>
+</span><span id="line-27"></span><span class="hs-keyword">class</span><span> </span><span id="Bottom"><span class="annot"><a href="Data.POrder.html#Bottom"><span class="hs-identifier hs-var">Bottom</span></a></span></span><span> </span><span id="local-6989586621679036455"><span class="annot"><a href="#local-6989586621679036455"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-keyword">where</span><span> </span><span id="bottom"><span class="annot"><a href="Data.POrder.html#bottom"><span class="hs-identifier hs-type">bottom</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679036455"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="hs-comment">-- | A class indicating that the type @a@ is has a top</span><span>
+</span><span id="line-30"></span><span class="hs-comment">-- element.</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">class</span><span> </span><span class="annot"><a href="Data.POrder.html#POrder"><span class="hs-identifier hs-type">POrder</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679036464"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span id="Top"><span class="annot"><a href="Data.POrder.html#Top"><span class="hs-identifier hs-var">Top</span></a></span></span><span> </span><span id="local-6989586621679036464"><span class="annot"><a href="#local-6989586621679036464"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-keyword">where</span><span> </span><span id="top"><span class="annot"><a href="Data.POrder.html#top"><span class="hs-identifier hs-type">top</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679036464"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="hs-comment">-- | The dual order</span><span>
+</span><span id="line-34"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679036458"><span class="annot"><a href="Data.POrder.html#POrder"><span class="hs-identifier hs-type">POrder</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679036458"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.POrder.html#POrder"><span class="hs-identifier hs-type">POrder</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Dual</span></span><span> </span><span class="annot"><a href="#local-6989586621679036458"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-35"></span><span>    </span><span id="local-6989586621679036425"><span class="annot"><span class="annottext">eqOfLe :: Dual a -&gt; Dual a -&gt; Bool
+</span><a href="#local-6989586621679036425"><span class="hs-identifier hs-var hs-var hs-var hs-var">eqOfLe</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Dual</span></span><span> </span><span id="local-6989586621679036423"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679036423"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Dual</span></span><span> </span><span id="local-6989586621679036422"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679036422"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; Bool
+forall a. POrder a =&gt; a -&gt; a -&gt; Bool
+</span><a href="Data.POrder.html#eqOfLe"><span class="hs-identifier hs-var">eqOfLe</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679036422"><span class="hs-identifier hs-var">y</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679036423"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="hs-comment">-- | Bottom is the 'top' of @a@</span><span>
+</span><span id="line-38"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679036454"><span class="annot"><a href="Data.POrder.html#Top"><span class="hs-identifier hs-type">Top</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679036454"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.POrder.html#Bottom"><span class="hs-identifier hs-type">Bottom</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Dual</span></span><span> </span><span class="annot"><a href="#local-6989586621679036454"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679036416"><span class="annot"><span class="annottext">bottom :: Dual a
+</span><a href="#local-6989586621679036416"><span class="hs-identifier hs-var hs-var hs-var hs-var">bottom</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; Dual a
+forall a. a -&gt; Dual a
+</span><span class="hs-identifier hs-var">Dual</span></span><span> </span><span class="annot"><span class="annottext">a
+forall a. Top a =&gt; a
+</span><a href="Data.POrder.html#top"><span class="hs-identifier hs-var">top</span></a></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- Annoyingly, we have to give all instances here, to avoid orphans</span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- | Arbitrary using the @False &lt; True@ order</span><span>
+</span><span id="line-43"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.POrder.html#POrder"><span class="hs-identifier hs-type">POrder</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679036411"><span class="annot"><span class="annottext">eqOfLe :: Bool -&gt; Bool -&gt; Bool
+</span><a href="#local-6989586621679036411"><span class="hs-identifier hs-var hs-var hs-var hs-var">eqOfLe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">(==)</span></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- | Bottom is 'False'</span><span>
+</span><span id="line-46"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.POrder.html#Bottom"><span class="hs-identifier hs-type">Bottom</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679036408"><span class="annot"><span class="annottext">bottom :: Bool
+</span><a href="#local-6989586621679036408"><span class="hs-identifier hs-var hs-var hs-var hs-var">bottom</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span class="hs-comment">-- | Top is 'True'</span><span>
+</span><span id="line-49"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.POrder.html#Top"><span class="hs-identifier hs-type">Top</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679036402"><span class="annot"><span class="annottext">top :: Bool
+</span><a href="#local-6989586621679036402"><span class="hs-identifier hs-var hs-var hs-var hs-var">top</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- | Ordered by 'S.subsetOf'</span><span>
+</span><span id="line-52"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679036449"><span class="annot"><a href="Data.POrder.html#POrder"><span class="hs-identifier hs-type">POrder</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">S.Set</span></span><span> </span><span class="annot"><a href="#local-6989586621679036449"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679036397"><span class="annot"><span class="annottext">eqOfLe :: Set a -&gt; Set a -&gt; Bool
+</span><a href="#local-6989586621679036397"><span class="hs-identifier hs-var hs-var hs-var hs-var">eqOfLe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">(==)</span></span><span> </span><span class="annot"><span class="annottext">(Int -&gt; Int -&gt; Bool) -&gt; (Set a -&gt; Int) -&gt; Set a -&gt; Set a -&gt; Bool
+forall b c a. (b -&gt; b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">`on`</span></span><span> </span><span class="annot"><span class="annottext">Set a -&gt; Int
+forall a. Set a -&gt; Int
+</span><span class="hs-identifier hs-var">S.size</span></span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- | Bottom is 'S.empty'</span><span>
+</span><span id="line-55"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679036443"><span class="annot"><a href="Data.POrder.html#Bottom"><span class="hs-identifier hs-type">Bottom</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">S.Set</span></span><span> </span><span class="annot"><a href="#local-6989586621679036443"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679036392"><span class="annot"><span class="annottext">bottom :: Set a
+</span><a href="#local-6989586621679036392"><span class="hs-identifier hs-var hs-var hs-var hs-var">bottom</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Set a
+forall a. Set a
+</span><span class="hs-identifier hs-var">S.empty</span></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-comment">-- | Ordered by '(&lt;=)f'</span><span>
+</span><span id="line-58"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.POrder.html#POrder"><span class="hs-identifier hs-type">POrder</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span> </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679036386"><span class="annot"><span class="annottext">eqOfLe :: Natural -&gt; Natural -&gt; Bool
+</span><a href="#local-6989586621679036386"><span class="hs-identifier hs-var hs-var hs-var hs-var">eqOfLe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">(==)</span></span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- | Bottom is 0</span><span>
+</span><span id="line-61"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.POrder.html#Bottom"><span class="hs-identifier hs-type">Bottom</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span> </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679036381"><span class="annot"><span class="annottext">bottom :: Natural
+</span><a href="#local-6989586621679036381"><span class="hs-identifier hs-var hs-var hs-var hs-var">bottom</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span class="hs-comment">-- | Adds 'Nothing' as a least element to an existing partial order</span><span>
+</span><span id="line-64"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679036441"><span class="annot"><a href="Data.POrder.html#POrder"><span class="hs-identifier hs-type">POrder</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679036441"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.POrder.html#POrder"><span class="hs-identifier hs-type">POrder</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679036441"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-65"></span><span>    </span><span id="local-6989586621679036374"><span class="annot"><span class="annottext">eqOfLe :: Maybe a -&gt; Maybe a -&gt; Bool
+</span><a href="#local-6989586621679036374"><span class="hs-identifier hs-var hs-var hs-var hs-var">eqOfLe</span></a></span></span><span> </span><span class="annot"><span class="annottext">Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="annot"><span class="annottext">Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-66"></span><span>    </span><span class="annot"><a href="Data.POrder.html#eqOfLe"><span class="hs-identifier hs-var">eqOfLe</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-67"></span><span>    </span><span class="annot"><a href="Data.POrder.html#eqOfLe"><span class="hs-identifier hs-var">eqOfLe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679036373"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679036373"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679036372"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679036372"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; Bool
+forall a. POrder a =&gt; a -&gt; a -&gt; Bool
+</span><a href="Data.POrder.html#eqOfLe"><span class="hs-identifier hs-var">eqOfLe</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679036373"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679036372"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-68"></span><span>    </span><span class="annot"><a href="Data.POrder.html#eqOfLe"><span class="hs-identifier hs-var">eqOfLe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; Bool
+forall a. HasCallStack =&gt; [Char] -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">[Char]
+</span><span class="hs-string">&quot;eqOfLe/Maybe used with unrelated arguments&quot;</span></span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span class="hs-comment">-- | Bottom is 'Nothing'</span><span>
+</span><span id="line-71"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679036436"><span class="annot"><a href="Data.POrder.html#POrder"><span class="hs-identifier hs-type">POrder</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679036436"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.POrder.html#Bottom"><span class="hs-identifier hs-type">Bottom</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679036436"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span> </span><span id="local-6989586621679036367"><span class="annot"><span class="annottext">bottom :: Maybe a
+</span><a href="#local-6989586621679036367"><span class="hs-identifier hs-var hs-var hs-var hs-var">bottom</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe a
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-72"></span></pre></body></html>

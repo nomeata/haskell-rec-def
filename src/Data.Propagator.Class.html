@@ -1,0 +1,39 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE FlexibleInstances #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE MultiParamTypeClasses #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE FunctionalDependencies #-}</span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- | This module provides the 'Propagator' class</span><span>
+</span><span id="line-8"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Data.Propagator.Class</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-9"></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Exception</span></span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- | The Propagator class defines some functions shared by different propagator</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- implementations. This backs the generic &quot;Data.Propagator.Purify&quot; wrapper.</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">class</span><span> </span><span id="Propagator"><span class="annot"><a href="Data.Propagator.Class.html#Propagator"><span class="hs-identifier hs-var">Propagator</span></a></span></span><span> </span><span id="local-6989586621679036489"><span class="annot"><a href="#local-6989586621679036489"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span id="local-6989586621679036488"><span class="annot"><a href="#local-6989586621679036488"><span class="hs-identifier hs-type">x</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><a href="#local-6989586621679036489"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679036488"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-15"></span><span>    </span><span id="newProp"><span class="annot"><a href="Data.Propagator.Class.html#newProp"><span class="hs-identifier hs-type">newProp</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679036489"><span class="hs-identifier hs-type">p</span></a></span><span>
+</span><span id="line-16"></span><span>    </span><span id="newConstProp"><span class="annot"><a href="Data.Propagator.Class.html#newConstProp"><span class="hs-identifier hs-type">newConstProp</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679036488"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679036489"><span class="hs-identifier hs-type">p</span></a></span><span>
+</span><span id="line-17"></span><span>    </span><span id="freezeProp"><span class="annot"><a href="Data.Propagator.Class.html#freezeProp"><span class="hs-identifier hs-type">freezeProp</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679036489"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span>    </span><span id="readProp"><span class="annot"><a href="Data.Propagator.Class.html#readProp"><span class="hs-identifier hs-type">readProp</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679036489"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679036488"><span class="hs-identifier hs-type">x</span></a></span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- | Exception thrown by a propagator when attempting to change the value of a frozen propagator</span><span>
+</span><span id="line-21"></span><span class="hs-keyword">data</span><span> </span><span id="WriteToFrozenPropagatorException"><span class="annot"><a href="Data.Propagator.Class.html#WriteToFrozenPropagatorException"><span class="hs-identifier hs-var">WriteToFrozenPropagatorException</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="WriteToFrozenPropagatorException"><span class="annot"><a href="Data.Propagator.Class.html#WriteToFrozenPropagatorException"><span class="hs-identifier hs-var">WriteToFrozenPropagatorException</span></a></span></span><span>
+</span><span id="line-22"></span><span>   </span><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621679036477"><span id="local-6989586621679036479"><span id="local-6989586621679036481"><span class="annot"><span class="annottext">Int -&gt; WriteToFrozenPropagatorException -&gt; ShowS
+[WriteToFrozenPropagatorException] -&gt; ShowS
+WriteToFrozenPropagatorException -&gt; String
+(Int -&gt; WriteToFrozenPropagatorException -&gt; ShowS)
+-&gt; (WriteToFrozenPropagatorException -&gt; String)
+-&gt; ([WriteToFrozenPropagatorException] -&gt; ShowS)
+-&gt; Show WriteToFrozenPropagatorException
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [WriteToFrozenPropagatorException] -&gt; ShowS
+$cshowList :: [WriteToFrozenPropagatorException] -&gt; ShowS
+show :: WriteToFrozenPropagatorException -&gt; String
+$cshow :: WriteToFrozenPropagatorException -&gt; String
+showsPrec :: Int -&gt; WriteToFrozenPropagatorException -&gt; ShowS
+$cshowsPrec :: Int -&gt; WriteToFrozenPropagatorException -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679036466"><span id="local-6989586621679036468"><span id="local-6989586621679036470"><span class="annot"><span class="hs-identifier hs-type">Exception</span></span><span> </span><span class="annot"><a href="Data.Propagator.Class.html#WriteToFrozenPropagatorException"><span class="hs-identifier hs-type">WriteToFrozenPropagatorException</span></a></span></span></span></span><span>
+</span><span id="line-24"></span></pre></body></html>

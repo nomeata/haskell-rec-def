@@ -1,0 +1,318 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE CPP #-}</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-comment">{-|
+
+The 'Thunk' API provides a way to defer potentially recursive computations:
+
+* 'thunk' is lazy in its argument, and does not run it directly
+* the first 'force' triggers execution of the action passed to thunk
+* that action is run at most once, and returns a list of other thunks
+* 'force' forces these thunks as well, and does not return before all of them have executed
+* Cycles are allowed: The action passed to 'thunk' may return a thunk whose action returns the first thunk.
+
+The implementation is hopefully thread safe: Even if multiple threads force or
+kick related thunks, all actions are still run at most once, and all calls to
+force terminate (no deadlock).
+
+&gt;&gt;&gt; :set -XRecursiveDo
+&gt;&gt;&gt; :{
+  mdo t1 &lt;- thunk $ putStrLn &quot;Hello&quot; &gt;&gt; pure [t1, t2]
+      t2 &lt;- thunk $ putStrLn &quot;World&quot; &gt;&gt; pure [t1, t2]
+      putStrLn &quot;Nothing happened so far, but now:&quot;
+      force t1
+      putStrLn &quot;No more will happen now:&quot;
+      force t1
+      putStrLn &quot;That's it&quot;
+:}
+Nothing happened so far, but now:
+Hello
+World
+No more will happen now:
+That's it
+
+-}</span><span>
+</span><span id="line-35"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">System.IO.RecThunk</span><span>
+</span><span id="line-36"></span><span>    </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="System.IO.RecThunk.html#Thunk"><span class="hs-identifier">Thunk</span></a></span><span>
+</span><span id="line-37"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="System.IO.RecThunk.html#thunk"><span class="hs-identifier">thunk</span></a></span><span>
+</span><span id="line-38"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="System.IO.RecThunk.html#doneThunk"><span class="hs-identifier">doneThunk</span></a></span><span>
+</span><span id="line-39"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="System.IO.RecThunk.html#force"><span class="hs-identifier">force</span></a></span><span>
+</span><span id="line-40"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span class="hs-comment">-- I want to test this code with dejafu, without carrying it as a dependency</span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- of the main library. So here is a bit of CPP to care for that.</span><span class="hs-cpp">
+
+#ifdef DEJAFU
+</span><span class="hs-cpp">
+#define Ctxt   (MonadConc m, MonadIO m) =&gt;
+</span><span class="hs-cpp">#define Thunk_  (Thunk m)
+</span><span class="hs-cpp">#define ResolvingState_  (ResolvingState m)
+</span><span class="hs-cpp">#define KickedThunk_  (KickedThunk m)
+</span><span class="hs-cpp">#define MVar_  MVar m
+</span><span class="hs-cpp">#define M      m
+</span><span>
+</span><span id="line-56"></span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control.Concurrent.Classy</span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">wait</span><span class="hs-special">)</span><span>
+</span><span id="line-57"></span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data.Unique</span><span>
+</span><span id="line-58"></span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control.Monad.IO.Class</span><span class="hs-cpp">
+
+#else
+</span><span class="hs-cpp">
+#define Ctxt
+</span><span class="hs-cpp">#define Thunk_  Thunk
+</span><span class="hs-cpp">#define ResolvingState_  ResolvingState
+</span><span class="hs-cpp">#define KickedThunk_  KickedThunk
+</span><span class="hs-cpp">#define MVar_  MVar
+</span><span class="hs-cpp">#define M      IO
+</span><span>
+</span><span id="line-69"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.MVar</span></span><span>
+</span><span id="line-70"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Unique</span></span><span>
+</span><span id="line-71"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.IO.Class</span></span><span class="hs-cpp">
+
+#endif
+</span><span>
+</span><span id="line-75"></span><span class="hs-comment">-- | An @IO@ action that is to be run at most once</span><span>
+</span><span id="line-76"></span><span class="hs-keyword">newtype</span><span> </span><span id="Thunk"></span><span class="hs-identifier">Thunk_</span><span> </span><span class="hs-glyph">=</span><span id="Thunk"><span> </span></span><span class="hs-identifier">Thunk</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">MVar_</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">Either</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">M</span><span> </span><span class="hs-special">[</span><span class="hs-identifier">Thunk_</span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="hs-identifier">KickedThunk_</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span class="hs-keyword">data</span><span> </span><span id="ResolvingState"></span><span class="hs-identifier">ResolvingState_</span><span> </span><span class="hs-glyph">=</span><span id="NotStarted"><span> </span></span><span class="hs-identifier">NotStarted</span><span> </span><span class="hs-glyph">|</span><span id="ProcessedBy"><span> </span></span><span class="hs-identifier">ProcessedBy</span><span> </span><span class="hs-identifier">Unique</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">MVar_</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span id="Done"><span class="hs-glyph">|</span><span> </span></span><span class="hs-identifier">Done</span><span>
+</span><span id="line-78"></span><span class="hs-comment">-- | A 'Thunk' that is being evaluated</span><span>
+</span><span id="line-79"></span><span class="hs-keyword">data</span><span> </span><span id="KickedThunk"></span><span class="hs-identifier">KickedThunk_</span><span> </span><span class="hs-glyph">=</span><span id="KickedThunk"><span> </span></span><span class="hs-identifier">KickedThunk</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">MVar_</span><span> </span><span class="hs-special">[</span><span class="hs-identifier">KickedThunk_</span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">MVar_</span><span> </span><span class="hs-identifier">ResolvingState_</span><span class="hs-special">)</span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span class="hs-comment">-- | Create a new 'Thunk' from an 'IO' action.</span><span>
+</span><span id="line-82"></span><span class="hs-comment">--</span><span>
+</span><span id="line-83"></span><span class="hs-comment">-- The 'IO' action may return other thunks that should be forced together</span><span>
+</span><span id="line-84"></span><span class="hs-comment">-- whenver this thunk is forced (in arbitrary order)</span><span>
+</span><span id="line-85"></span><span class="annot"><a href="System.IO.RecThunk.html#thunk"><span class="hs-identifier hs-type">thunk</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">Ctxt</span><span> </span><span class="hs-identifier">M</span><span> </span><span class="hs-special">[</span><span class="hs-identifier">Thunk_</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">M</span><span> </span><span class="hs-identifier">Thunk_</span><span>
+</span><span id="line-86"></span><span id="thunk"><span class="annot"><span class="annottext">thunk :: IO [Thunk] -&gt; IO Thunk
+</span><a href="System.IO.RecThunk.html#thunk"><span class="hs-identifier hs-var hs-var">thunk</span></a></span></span><span> </span><span id="local-6989586621679036840"><span class="annot"><span class="annottext">IO [Thunk]
+</span><a href="#local-6989586621679036840"><span class="hs-identifier hs-var">act</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar (Either (IO [Thunk]) KickedThunk) -&gt; Thunk
+</span><a href="System.IO.RecThunk.html#Thunk"><span class="hs-identifier hs-var">Thunk</span></a></span><span> </span><span class="annot"><span class="annottext">(MVar (Either (IO [Thunk]) KickedThunk) -&gt; Thunk)
+-&gt; IO (MVar (Either (IO [Thunk]) KickedThunk)) -&gt; IO Thunk
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Either (IO [Thunk]) KickedThunk
+-&gt; IO (MVar (Either (IO [Thunk]) KickedThunk))
+forall a. a -&gt; IO (MVar a)
+</span><span class="hs-identifier hs-var">newMVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO [Thunk] -&gt; Either (IO [Thunk]) KickedThunk
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">IO [Thunk]
+</span><a href="#local-6989586621679036840"><span class="hs-identifier hs-var">act</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span>
+</span><span id="line-88"></span><span class="hs-comment">-- | A Thunk that that already is done.</span><span>
+</span><span id="line-89"></span><span class="hs-comment">--</span><span>
+</span><span id="line-90"></span><span class="hs-comment">-- Equivalent to @do {t &lt;- thunk (pure []); force t; pure t }@</span><span>
+</span><span id="line-91"></span><span class="annot"><a href="System.IO.RecThunk.html#doneThunk"><span class="hs-identifier hs-type">doneThunk</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">Ctxt</span><span> </span><span class="hs-identifier">M</span><span> </span><span class="hs-identifier">Thunk_</span><span>
+</span><span id="line-92"></span><span id="doneThunk"><span class="annot"><span class="annottext">doneThunk :: IO Thunk
+</span><a href="System.IO.RecThunk.html#doneThunk"><span class="hs-identifier hs-var hs-var">doneThunk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-93"></span><span>    </span><span id="local-6989586621679036837"><span class="annot"><span class="annottext">MVar [KickedThunk]
+</span><a href="#local-6989586621679036837"><span class="hs-identifier hs-var">mv_ts</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[KickedThunk] -&gt; IO (MVar [KickedThunk])
+forall a. a -&gt; IO (MVar a)
+</span><span class="hs-identifier hs-var">newMVar</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-94"></span><span>    </span><span id="local-6989586621679036836"><span class="annot"><span class="annottext">MVar ResolvingState
+</span><a href="#local-6989586621679036836"><span class="hs-identifier hs-var">mv_s</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ResolvingState -&gt; IO (MVar ResolvingState)
+forall a. a -&gt; IO (MVar a)
+</span><span class="hs-identifier hs-var">newMVar</span></span><span> </span><span class="annot"><span class="annottext">ResolvingState
+</span><a href="System.IO.RecThunk.html#Done"><span class="hs-identifier hs-var">Done</span></a></span><span>
+</span><span id="line-95"></span><span>    </span><span class="annot"><span class="annottext">MVar (Either (IO [Thunk]) KickedThunk) -&gt; Thunk
+</span><a href="System.IO.RecThunk.html#Thunk"><span class="hs-identifier hs-var">Thunk</span></a></span><span> </span><span class="annot"><span class="annottext">(MVar (Either (IO [Thunk]) KickedThunk) -&gt; Thunk)
+-&gt; IO (MVar (Either (IO [Thunk]) KickedThunk)) -&gt; IO Thunk
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Either (IO [Thunk]) KickedThunk
+-&gt; IO (MVar (Either (IO [Thunk]) KickedThunk))
+forall a. a -&gt; IO (MVar a)
+</span><span class="hs-identifier hs-var">newMVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">KickedThunk -&gt; Either (IO [Thunk]) KickedThunk
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MVar [KickedThunk] -&gt; MVar ResolvingState -&gt; KickedThunk
+</span><a href="System.IO.RecThunk.html#KickedThunk"><span class="hs-identifier hs-var">KickedThunk</span></a></span><span> </span><span class="annot"><span class="annottext">MVar [KickedThunk]
+</span><a href="#local-6989586621679036837"><span class="hs-identifier hs-var">mv_ts</span></a></span><span> </span><span class="annot"><span class="annottext">MVar ResolvingState
+</span><a href="#local-6989586621679036836"><span class="hs-identifier hs-var">mv_s</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-96"></span><span>
+</span><span id="line-97"></span><span class="hs-comment">-- Recursively explores the thunk, and kicks the execution</span><span>
+</span><span id="line-98"></span><span class="hs-comment">-- May return before before execution is done (if started by another thread)</span><span>
+</span><span id="line-99"></span><span class="annot"><a href="System.IO.RecThunk.html#kick"><span class="hs-identifier hs-type">kick</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">Ctxt</span><span> </span><span class="hs-identifier">Thunk_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">M</span><span> </span><span class="hs-identifier">KickedThunk_</span><span>
+</span><span id="line-100"></span><span id="kick"><span class="annot"><span class="annottext">kick :: Thunk -&gt; IO KickedThunk
+</span><a href="System.IO.RecThunk.html#kick"><span class="hs-identifier hs-var hs-var">kick</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="System.IO.RecThunk.html#Thunk"><span class="hs-identifier hs-type">Thunk</span></a></span><span> </span><span id="local-6989586621679036834"><span class="annot"><span class="annottext">MVar (Either (IO [Thunk]) KickedThunk)
+</span><a href="#local-6989586621679036834"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar (Either (IO [Thunk]) KickedThunk)
+-&gt; IO (Either (IO [Thunk]) KickedThunk)
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">takeMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar (Either (IO [Thunk]) KickedThunk)
+</span><a href="#local-6989586621679036834"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">IO (Either (IO [Thunk]) KickedThunk)
+-&gt; (Either (IO [Thunk]) KickedThunk -&gt; IO KickedThunk)
+-&gt; IO KickedThunk
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-101"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span> </span><span id="local-6989586621679036832"><span class="annot"><span class="annottext">IO [Thunk]
+</span><a href="#local-6989586621679036832"><span class="hs-identifier hs-var">act</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-102"></span><span>        </span><span id="local-6989586621679036831"><span class="annot"><span class="annottext">MVar [KickedThunk]
+</span><a href="#local-6989586621679036831"><span class="hs-identifier hs-var">mv_thunks</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (MVar [KickedThunk])
+forall a. IO (MVar a)
+</span><span class="hs-identifier hs-var">newEmptyMVar</span></span><span>
+</span><span id="line-103"></span><span>        </span><span id="local-6989586621679036829"><span class="annot"><span class="annottext">MVar ResolvingState
+</span><a href="#local-6989586621679036829"><span class="hs-identifier hs-var">mv_state</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ResolvingState -&gt; IO (MVar ResolvingState)
+forall a. a -&gt; IO (MVar a)
+</span><span class="hs-identifier hs-var">newMVar</span></span><span> </span><span class="annot"><span class="annottext">ResolvingState
+</span><a href="System.IO.RecThunk.html#NotStarted"><span class="hs-identifier hs-var">NotStarted</span></a></span><span>
+</span><span id="line-104"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679036828"><span class="annot"><span class="annottext">kt :: KickedThunk
+</span><a href="#local-6989586621679036828"><span class="hs-identifier hs-var hs-var">kt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar [KickedThunk] -&gt; MVar ResolvingState -&gt; KickedThunk
+</span><a href="System.IO.RecThunk.html#KickedThunk"><span class="hs-identifier hs-var">KickedThunk</span></a></span><span> </span><span class="annot"><span class="annottext">MVar [KickedThunk]
+</span><a href="#local-6989586621679036831"><span class="hs-identifier hs-var">mv_thunks</span></a></span><span> </span><span class="annot"><span class="annottext">MVar ResolvingState
+</span><a href="#local-6989586621679036829"><span class="hs-identifier hs-var">mv_state</span></a></span><span>
+</span><span id="line-105"></span><span>        </span><span class="annot"><span class="annottext">MVar (Either (IO [Thunk]) KickedThunk)
+-&gt; Either (IO [Thunk]) KickedThunk -&gt; IO ()
+forall a. MVar a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">putMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar (Either (IO [Thunk]) KickedThunk)
+</span><a href="#local-6989586621679036834"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">KickedThunk -&gt; Either (IO [Thunk]) KickedThunk
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="annot"><span class="annottext">KickedThunk
+</span><a href="#local-6989586621679036828"><span class="hs-identifier hs-var">kt</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-106"></span><span>
+</span><span id="line-107"></span><span>        </span><span id="local-6989586621679036826"><span class="annot"><span class="annottext">[Thunk]
+</span><a href="#local-6989586621679036826"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO [Thunk]
+</span><a href="#local-6989586621679036832"><span class="hs-identifier hs-var">act</span></a></span><span>
+</span><span id="line-108"></span><span>        </span><span id="local-6989586621679036825"><span class="annot"><span class="annottext">[KickedThunk]
+</span><a href="#local-6989586621679036825"><span class="hs-identifier hs-var">kts</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Thunk -&gt; IO KickedThunk) -&gt; [Thunk] -&gt; IO [KickedThunk]
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Traversable t, Monad m) =&gt;
+(a -&gt; m b) -&gt; t a -&gt; m (t b)
+</span><span class="hs-identifier hs-var">mapM</span></span><span> </span><span class="annot"><span class="annottext">Thunk -&gt; IO KickedThunk
+</span><a href="System.IO.RecThunk.html#kick"><span class="hs-identifier hs-var">kick</span></a></span><span> </span><span class="annot"><span class="annottext">[Thunk]
+</span><a href="#local-6989586621679036826"><span class="hs-identifier hs-var">ts</span></a></span><span>
+</span><span id="line-109"></span><span>        </span><span class="annot"><span class="annottext">MVar [KickedThunk] -&gt; [KickedThunk] -&gt; IO ()
+forall a. MVar a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">putMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar [KickedThunk]
+</span><a href="#local-6989586621679036831"><span class="hs-identifier hs-var">mv_thunks</span></a></span><span> </span><span class="annot"><span class="annottext">[KickedThunk]
+</span><a href="#local-6989586621679036825"><span class="hs-identifier hs-var">kts</span></a></span><span>
+</span><span id="line-110"></span><span>        </span><span class="annot"><span class="annottext">KickedThunk -&gt; IO KickedThunk
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">KickedThunk
+</span><a href="#local-6989586621679036828"><span class="hs-identifier hs-var">kt</span></a></span><span>
+</span><span id="line-111"></span><span>
+</span><span id="line-112"></span><span>    </span><span class="hs-comment">-- Thread was already kicked, nothing to do</span><span>
+</span><span id="line-113"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span id="local-6989586621679036823"><span class="annot"><span class="annottext">KickedThunk
+</span><a href="#local-6989586621679036823"><span class="hs-identifier hs-var">kt</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-114"></span><span>        </span><span class="annot"><span class="annottext">MVar (Either (IO [Thunk]) KickedThunk)
+-&gt; Either (IO [Thunk]) KickedThunk -&gt; IO ()
+forall a. MVar a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">putMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar (Either (IO [Thunk]) KickedThunk)
+</span><a href="#local-6989586621679036834"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">KickedThunk -&gt; Either (IO [Thunk]) KickedThunk
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="annot"><span class="annottext">KickedThunk
+</span><a href="#local-6989586621679036823"><span class="hs-identifier hs-var">kt</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-115"></span><span>        </span><span class="annot"><span class="annottext">KickedThunk -&gt; IO KickedThunk
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">KickedThunk
+</span><a href="#local-6989586621679036823"><span class="hs-identifier hs-var">kt</span></a></span><span>
+</span><span id="line-116"></span><span>
+</span><span id="line-117"></span><span class="annot"><a href="System.IO.RecThunk.html#wait"><span class="hs-identifier hs-type">wait</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">Ctxt</span><span> </span><span class="hs-identifier">Unique</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">KickedThunk_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">M</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-118"></span><span id="wait"><span class="annot"><span class="annottext">wait :: Unique -&gt; KickedThunk -&gt; IO ()
+</span><a href="System.IO.RecThunk.html#wait"><span class="hs-identifier hs-var hs-var">wait</span></a></span></span><span> </span><span id="local-6989586621679036821"><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621679036821"><span class="hs-identifier hs-var">my_id</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="System.IO.RecThunk.html#KickedThunk"><span class="hs-identifier hs-type">KickedThunk</span></a></span><span> </span><span id="local-6989586621679036820"><span class="annot"><span class="annottext">MVar [KickedThunk]
+</span><a href="#local-6989586621679036820"><span class="hs-identifier hs-var">mv_deps</span></a></span></span><span> </span><span id="local-6989586621679036819"><span class="annot"><span class="annottext">MVar ResolvingState
+</span><a href="#local-6989586621679036819"><span class="hs-identifier hs-var">mv_s</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-119"></span><span>    </span><span id="local-6989586621679036818"><span class="annot"><span class="annottext">ResolvingState
+</span><a href="#local-6989586621679036818"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">MVar ResolvingState -&gt; IO ResolvingState
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">takeMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar ResolvingState
+</span><a href="#local-6989586621679036819"><span class="hs-identifier hs-var">mv_s</span></a></span><span>
+</span><span id="line-120"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ResolvingState
+</span><a href="#local-6989586621679036818"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-121"></span><span>        </span><span class="hs-comment">-- Thunk and all dependences are done</span><span>
+</span><span id="line-122"></span><span>        </span><span class="annot"><span class="annottext">ResolvingState
+</span><a href="System.IO.RecThunk.html#Done"><span class="hs-identifier hs-var">Done</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MVar ResolvingState -&gt; ResolvingState -&gt; IO ()
+forall a. MVar a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">putMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar ResolvingState
+</span><a href="#local-6989586621679036819"><span class="hs-identifier hs-var">mv_s</span></a></span><span> </span><span class="annot"><span class="annottext">ResolvingState
+</span><a href="#local-6989586621679036818"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-123"></span><span>        </span><span class="hs-comment">-- Thunk is being processed by a higher priority thread, so simply wait</span><span>
+</span><span id="line-124"></span><span>        </span><span class="annot"><a href="System.IO.RecThunk.html#ProcessedBy"><span class="hs-identifier hs-type">ProcessedBy</span></a></span><span> </span><span id="local-6989586621679036817"><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621679036817"><span class="hs-identifier hs-var">other_id</span></a></span></span><span> </span><span id="local-6989586621679036816"><span class="annot"><span class="annottext">MVar ()
+</span><a href="#local-6989586621679036816"><span class="hs-identifier hs-var">done_mv</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621679036817"><span class="hs-identifier hs-var">other_id</span></a></span><span> </span><span class="annot"><span class="annottext">Unique -&gt; Unique -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621679036821"><span class="hs-identifier hs-var">my_id</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-125"></span><span>            </span><span class="annot"><span class="annottext">MVar ResolvingState -&gt; ResolvingState -&gt; IO ()
+forall a. MVar a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">putMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar ResolvingState
+</span><a href="#local-6989586621679036819"><span class="hs-identifier hs-var">mv_s</span></a></span><span> </span><span class="annot"><span class="annottext">ResolvingState
+</span><a href="#local-6989586621679036818"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-126"></span><span>            </span><span class="annot"><span class="annottext">MVar () -&gt; IO ()
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">readMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar ()
+</span><a href="#local-6989586621679036816"><span class="hs-identifier hs-var">done_mv</span></a></span><span>
+</span><span id="line-127"></span><span>        </span><span class="hs-comment">-- Thunk is already being processed by this thread, ignore</span><span>
+</span><span id="line-128"></span><span>        </span><span class="annot"><a href="System.IO.RecThunk.html#ProcessedBy"><span class="hs-identifier hs-type">ProcessedBy</span></a></span><span> </span><span id="local-6989586621679036813"><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621679036813"><span class="hs-identifier hs-var">other_id</span></a></span></span><span> </span><span id="local-6989586621679036812"><span class="annot"><span class="annottext">MVar ()
+</span><a href="#local-6989586621679036812"><span class="hs-identifier hs-var">_done_mv</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621679036813"><span class="hs-identifier hs-var">other_id</span></a></span><span> </span><span class="annot"><span class="annottext">Unique -&gt; Unique -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621679036821"><span class="hs-identifier hs-var">my_id</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-129"></span><span>            </span><span class="annot"><span class="annottext">MVar ResolvingState -&gt; ResolvingState -&gt; IO ()
+forall a. MVar a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">putMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar ResolvingState
+</span><a href="#local-6989586621679036819"><span class="hs-identifier hs-var">mv_s</span></a></span><span> </span><span class="annot"><span class="annottext">ResolvingState
+</span><a href="#local-6989586621679036818"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-130"></span><span>            </span><span class="annot"><span class="annottext">() -&gt; IO ()
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-131"></span><span>        </span><span class="hs-comment">-- Thunk is not yet processed, or processed by a lower priority thread, so process now</span><span>
+</span><span id="line-132"></span><span>        </span><span class="annot"><span class="annottext">ResolvingState
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-133"></span><span>            </span><span id="local-6989586621679036811"><span class="annot"><span class="annottext">MVar ()
+</span><a href="#local-6989586621679036811"><span class="hs-identifier hs-var">done_mv</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (MVar ())
+forall a. IO (MVar a)
+</span><span class="hs-identifier hs-var">newEmptyMVar</span></span><span>
+</span><span id="line-134"></span><span>            </span><span class="annot"><span class="annottext">MVar ResolvingState -&gt; ResolvingState -&gt; IO ()
+forall a. MVar a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">putMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar ResolvingState
+</span><a href="#local-6989586621679036819"><span class="hs-identifier hs-var">mv_s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Unique -&gt; MVar () -&gt; ResolvingState
+</span><a href="System.IO.RecThunk.html#ProcessedBy"><span class="hs-identifier hs-var">ProcessedBy</span></a></span><span> </span><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621679036821"><span class="hs-identifier hs-var">my_id</span></a></span><span> </span><span class="annot"><span class="annottext">MVar ()
+</span><a href="#local-6989586621679036811"><span class="hs-identifier hs-var">done_mv</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-135"></span><span>            </span><span id="local-6989586621679036810"><span class="annot"><span class="annottext">[KickedThunk]
+</span><a href="#local-6989586621679036810"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">MVar [KickedThunk] -&gt; IO [KickedThunk]
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">readMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar [KickedThunk]
+</span><a href="#local-6989586621679036820"><span class="hs-identifier hs-var">mv_deps</span></a></span><span>
+</span><span id="line-136"></span><span>            </span><span class="annot"><span class="annottext">(KickedThunk -&gt; IO ()) -&gt; [KickedThunk] -&gt; IO ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Foldable t, Monad m) =&gt;
+(a -&gt; m b) -&gt; t a -&gt; m ()
+</span><span class="hs-identifier hs-var">mapM_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Unique -&gt; KickedThunk -&gt; IO ()
+</span><a href="System.IO.RecThunk.html#wait"><span class="hs-identifier hs-var">wait</span></a></span><span> </span><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621679036821"><span class="hs-identifier hs-var">my_id</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[KickedThunk]
+</span><a href="#local-6989586621679036810"><span class="hs-identifier hs-var">ts</span></a></span><span>
+</span><span id="line-137"></span><span>            </span><span class="hs-comment">-- Mark kicked thunk as done</span><span>
+</span><span id="line-138"></span><span>            </span><span class="annot"><span class="annottext">ResolvingState
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">MVar ResolvingState -&gt; ResolvingState -&gt; IO ResolvingState
+forall a. MVar a -&gt; a -&gt; IO a
+</span><span class="hs-identifier hs-var">swapMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar ResolvingState
+</span><a href="#local-6989586621679036819"><span class="hs-identifier hs-var">mv_s</span></a></span><span> </span><span class="annot"><span class="annottext">ResolvingState
+</span><a href="System.IO.RecThunk.html#Done"><span class="hs-identifier hs-var">Done</span></a></span><span>
+</span><span id="line-139"></span><span>            </span><span class="hs-comment">-- Wake up waiting threads</span><span>
+</span><span id="line-140"></span><span>            </span><span class="annot"><span class="annottext">MVar () -&gt; () -&gt; IO ()
+forall a. MVar a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">putMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar ()
+</span><a href="#local-6989586621679036811"><span class="hs-identifier hs-var">done_mv</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-141"></span><span>
+</span><span id="line-142"></span><span class="hs-comment">-- | Force the execution of the thunk. If it has been forced already, it will</span><span>
+</span><span id="line-143"></span><span class="hs-comment">-- do nothing. Else it will run the action passed to 'thunk', force thunks</span><span>
+</span><span id="line-144"></span><span class="hs-comment">-- returned by that action, and not return until all of them are forced.</span><span>
+</span><span id="line-145"></span><span class="annot"><a href="System.IO.RecThunk.html#force"><span class="hs-identifier hs-type">force</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">Ctxt</span><span> </span><span class="hs-identifier">Thunk_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">M</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-146"></span><span id="force"><span class="annot"><span class="annottext">force :: Thunk -&gt; IO ()
+</span><a href="System.IO.RecThunk.html#force"><span class="hs-identifier hs-var hs-var">force</span></a></span></span><span> </span><span id="local-6989586621679036807"><span class="annot"><span class="annottext">Thunk
+</span><a href="#local-6989586621679036807"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-147"></span><span>    </span><span id="local-6989586621679036806"><span class="annot"><span class="annottext">KickedThunk
+</span><a href="#local-6989586621679036806"><span class="hs-identifier hs-var">rt</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Thunk -&gt; IO KickedThunk
+</span><a href="System.IO.RecThunk.html#kick"><span class="hs-identifier hs-var">kick</span></a></span><span> </span><span class="annot"><span class="annottext">Thunk
+</span><a href="#local-6989586621679036807"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-148"></span><span>    </span><span id="local-6989586621679036805"><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621679036805"><span class="hs-identifier hs-var">my_id</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO Unique -&gt; IO Unique
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">IO Unique
+</span><span class="hs-identifier hs-var">newUnique</span></span><span>
+</span><span id="line-149"></span><span>    </span><span class="annot"><span class="annottext">Unique -&gt; KickedThunk -&gt; IO ()
+</span><a href="System.IO.RecThunk.html#wait"><span class="hs-identifier hs-var">wait</span></a></span><span> </span><span class="annot"><span class="annottext">Unique
+</span><a href="#local-6989586621679036805"><span class="hs-identifier hs-var">my_id</span></a></span><span> </span><span class="annot"><span class="annottext">KickedThunk
+</span><a href="#local-6989586621679036806"><span class="hs-identifier hs-var">rt</span></a></span><span>
+</span><span id="line-150"></span></pre></body></html>
