@@ -3,8 +3,12 @@
 --  * Remove the ability to print the grammar, and remove the `ParserClass`
 --  class
 --  * Switch from unordered-containers to containers, to reduce dependencies
---  * Use `Data.Dynamic` in `memoise` to remove the restriction that all memoized productions need to have the same type
+--  * Use `Any` and `unsafeCoerce` in `memoise` to remove the restriction that
+--  all memoized productions need to have the same type. We cannot use
+--  `Data.Dynamic` because we cannot afford extra constraints on `a`, else we
+--  cannot instantiate `Functor` for the recursive parser.
 
+{-# LANGUAGE ScopedTypeVariables #-}
 module Parser
   ( parse, sat', memoise
   , sat, token, tok
@@ -19,7 +23,8 @@ import Data.Array
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 
-import Data.Dynamic
+import GHC.Exts (Any)
+import Unsafe.Coerce (unsafeCoerce)
 
 import qualified Data.IntMap.Strict as IntMap
 import Data.IntMap.Strict (IntMap)
@@ -44,8 +49,8 @@ type Cont k tok b a = Pos -> a -> M k tok b [b]
 -- | Memoised values.
 
 data Value k tok b = Value
-  { _results       :: !(IntMap [Dynamic])
-  , _continuations :: [Cont k tok b Dynamic]
+  { _results       :: !(IntMap [Any])
+  , _continuations :: [Cont k tok b Any]
   }
 
 -- | The parser type.
@@ -119,10 +124,13 @@ sat' p = P $ \input i k ->
   else
     return []
 
-memoise :: (Ord k, Typeable a) => k -> Parser k tok a -> Parser k tok a
+memoise :: forall k tok a. Ord k => k -> Parser k tok a -> Parser k tok a
 memoise key p = P $ \input i k -> do
 
-  let from d = fromDyn d (error "duplicated memoise key?")
+  let from :: Any -> a
+      from = unsafeCoerce
+  let to :: a -> Any
+      to = unsafeCoerce
   let k' pos d = k pos (from d)
 
   let alter j zero f m =
@@ -137,8 +145,8 @@ memoise key p = P $ \input i k -> do
       insertTable (Value IntMap.empty [k'])
       unP p input i $ \j r -> do
         ~(Just (Value rs ks)) <- lookupTable
-        insertTable (Value (alter j [] (toDyn r :) rs) ks)
-        concat <$> mapM (\k -> k j (toDyn r)) ks
+        insertTable (Value (alter j [] (to r :) rs) ks)
+        concat <$> mapM (\k -> k j (to r)) ks
     Just (Value rs ks) -> do
       insertTable (Value rs (k' : ks))
       concat . concat <$>
