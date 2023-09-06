@@ -7,7 +7,7 @@ import Control.Applicative
 
 import qualified Parser as P
 
-newtype Parser tok a = MkP (P.Parser Unique tok a)
+data Parser tok a = MkP { unP :: P.Parser Unique tok a }
 
 withMemo :: P.Parser Unique tok a -> Parser tok a
 withMemo p = unsafePerformIO $ do
@@ -30,13 +30,33 @@ tok :: Eq tok => tok -> Parser tok tok
 tok t = MkP (P.tok t)
 
 instance Functor (Parser tok) where
-  fmap f (MkP p) = withMemo (fmap f p)
+  fmap f p = withMemo (fmap f (unP p))
 
 instance Applicative (Parser tok) where
   pure x = MkP (pure x)
-  MkP p1 <*> MkP p2 = withMemo (p1 <*> p2)
+  p1 <*> p2 = withMemo (unP p1 <*> unP p2)
+
+instance Monad (Parser tok) where
+  return = pure
+  p1 >>= f = withMemo $ unP p1 >>= unP . f
 
 instance Alternative (Parser tok) where
   empty = MkP empty
-  MkP p1 <|> MkP p2 = withMemo (p1 <|> p2)
+  p1 <|> p2 = withMemo (unP p1 <|> unP p2)
 
+-- The large example from https://okmij.org/ftp/Haskell/LeftRecursion.hs
+
+(>>>) :: Monoid a => Parser tok a -> Parser tok a -> Parser tok a
+p1 >>> p2 = liftA2 (<>) p1 p2
+
+char :: Char -> Parser Char String
+char a = pure <$> tok a
+
+s,a,b,c :: Parser Char String
+s = s >>> a >>> c <|> c
+a = b <|> char 'a' >>> c >>> char 'a'
+b = id <$> b
+c = char 'b' <|> c >>> a
+
+-- ghci> parse s "babababa"
+-- ["babababa"]

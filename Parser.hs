@@ -74,12 +74,10 @@ newtype Parser k tok a =
              M k tok b [b]
     }
 
-{-
 instance Monad (Parser k tok) where
   return    = pure
   P p >>= f = P $ \input i k ->
     p input i $ \j x -> unP (f x) input j k
--}
 
 instance Functor (Parser k tok) where
   fmap f (P p) = P $ \input i k ->
@@ -97,21 +95,6 @@ instance Alternative (Parser k tok) where
   P p1 <|> P p2 = P $ \input i k ->
     liftM2 (++) (p1 input i k) (p2 input i k)
 
--- | Parses a token satisfying the given predicate.
-
-sat :: (tok -> Bool) -> Parser k tok tok
-sat p = sat' (\t -> if p t then Just t else Nothing)
-
--- | Parses a single token.
-
-token :: Parser k tok tok
-token = sat' Just
-
--- | Parses a given token.
-
-tok :: Eq tok => tok -> Parser k tok tok
-tok t = sat (t ==)
-
 parse :: Parser k tok a -> [tok] -> [a]
 parse p toks =
   flip evalState IntMap.empty $
@@ -127,6 +110,21 @@ sat' p = P $ \input i k ->
       Just x  -> (k $! (i + 1)) $! x
   else
     return []
+
+-- | Parses a token satisfying the given predicate.
+
+sat :: (tok -> Bool) -> Parser k tok tok
+sat p = sat' (\t -> if p t then Just t else Nothing)
+
+-- | Parses a single token.
+
+token :: Parser k tok tok
+token = sat' Just
+
+-- | Parses a given token.
+
+tok :: Eq tok => tok -> Parser k tok tok
+tok t = sat (t ==)
 
 memoise :: forall k tok a. Ord k => k -> Parser k tok a -> Parser k tok a
 memoise key p = P $ \input i k -> do
