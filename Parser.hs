@@ -4,9 +4,11 @@
 --  class
 --  * Switch from unordered-containers to containers, to reduce dependencies
 --  * Use `Any` and `unsafeCoerce` in `memoise` to remove the restriction that
---  all memoized productions need to have the same type. We cannot use
---  `Data.Dynamic` because we cannot afford extra constraints on `a`, else we
---  cannot instantiate `Functor` for the recursive parser.
+--    all memoized productions need to have the same type. We cannot use
+--    `Data.Dynamic` because we cannot afford extra constraints on `a`, else we
+--    cannot instantiate `Functor` for the recursive parser.
+--  * Removed `Monad` instance.  Unclear if you want that in the kind of parsers
+--    we are looking at.
 
 {-# LANGUAGE ScopedTypeVariables #-}
 module Parser
@@ -72,10 +74,12 @@ newtype Parser k tok a =
              M k tok b [b]
     }
 
+{-
 instance Monad (Parser k tok) where
   return    = pure
   P p >>= f = P $ \input i k ->
     p input i $ \j x -> unP (f x) input j k
+-}
 
 instance Functor (Parser k tok) where
   fmap f (P p) = P $ \input i k ->
