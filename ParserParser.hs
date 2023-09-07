@@ -33,16 +33,16 @@ str = some (sat (not . (== '\'')))
 ident :: P Ident
 ident = some (sat (\c -> isAlphaNum c && isAscii c))
 atom :: P Atom
-atom = Lit <$> l (quoted str)
+atom = Lit     <$> l (quoted str)
    <|> NonTerm <$> l ident
 eps :: P ()
 eps = void $ l (tok 'ε')
 sep :: P ()
 sep = void $ some (sat isSpace)
 sq :: P Seq
-sq = [] <$ eps
-  <|> (:)  <$> atom <* sep <*> sq
-  <|> pure <$> atom
+sq = []   <$ eps
+ <|> (:)  <$> atom <* sep <*> sq
+ <|> pure <$> atom
 ruleRhs :: P RuleRhs
 ruleRhs = pure <$> sq <* l (tok ';')
       <|> (:)  <$> sq <* l (tok '|') <*> ruleRhs
