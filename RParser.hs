@@ -4,6 +4,7 @@ import Data.Unique
 import Data.Typeable
 import System.IO.Unsafe
 import Control.Applicative
+import Data.Maybe
 
 import qualified Parser as P
 
@@ -14,8 +15,12 @@ withMemo p = unsafePerformIO $ do
     u <- newUnique
     pure $ MkP $ P.memoise u p
 
-parse :: Parser tok a -> [tok] -> [a]
-parse (MkP p) = P.parse p
+parses :: Parser tok a -> [tok] -> [a]
+parses (MkP p) = P.parse p
+
+parse :: Parser tok a -> [tok] -> Maybe a
+parse p = listToMaybe . parses p
+
 
 sat' :: Typeable a => (tok -> Maybe a) -> Parser tok a
 sat' p = MkP (P.sat' p)

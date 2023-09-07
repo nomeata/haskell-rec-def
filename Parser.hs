@@ -152,4 +152,4 @@ memoise key p = P $ \input i k -> do
     Just (Value rs ks) -> do
       insertTable (Value rs (k' : ks))
       concat . concat <$>
-        mapM (\(i, rs) -> mapM (k i) (map from rs)) (IntMap.toList rs)
+        mapM (\(i, rs) -> mapM (k i . from) rs) (IntMap.toList rs)
