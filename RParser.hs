@@ -21,7 +21,6 @@ parses (MkP p) = P.parse p
 parse :: Parser tok a -> [tok] -> Maybe a
 parse p = listToMaybe . parses p
 
-
 sat' :: Typeable a => (tok -> Maybe a) -> Parser tok a
 sat' p = MkP (P.sat' p)
 

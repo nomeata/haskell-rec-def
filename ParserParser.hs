@@ -22,6 +22,7 @@ type BNF = [Rule]
 type P = Parser Char
 
 l :: P a -> P a
+-- l p = p <|> l p <* sat isSpace
 l p = p' where -- NB: Sharing!
   p' = p <|> p' <* sat isSpace
 quote :: P Char
@@ -51,6 +52,20 @@ rule = (,) <$> l ident <* l (tok ':' *> tok '=') <*> ruleRhs
 bnf :: P BNF
 bnf = liftA2 (:) rule bnf <|> pure []
 
+-- An example
+
+numExp :: String
+numExp = unlines
+    [ "term   := sum;"
+    , "pdigit := '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';"
+    , "digit  := '0' | pdigit;"
+    , "pnum   := pdigit | pnum digit;"
+    , "num    := '0' | pnum;"
+    , "prod   := atom | atom '*' prod;"
+    , "sum    := prod | prod '+' sum;"
+    , "atom   := num | '(' term ')';"
+    ]
+
 -- Interpreting a BNF, producing a parse tree, i.e. noting which
 -- non-terminal fired
 
@@ -74,16 +89,3 @@ interp bnf = parsers M.! start
     parseAtom (Lit s) = traverse tok s
     parseAtom (NonTerm i) = parsers M.! i
 
--- An example
-
-numExp :: String
-numExp = unlines
-    [ "term   := sum;"
-    , "pdigit := '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';"
-    , "digit  := '0' | pdigit;"
-    , "pnum   := pdigit | pnum digit;"
-    , "num    := '0' | pnum;"
-    , "prod   := atom | atom '*' prod;"
-    , "sum    := prod | prod '+' sum;"
-    , "atom   := num | '(' term ')';"
-    ]
